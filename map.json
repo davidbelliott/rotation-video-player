@@ -1,0 +1,27 @@
+{
+    "starting_room": "bedroom",
+    "rooms": {
+        "bedroom": {
+            "video": "canyon.mp4",
+            "next": "bedroom_choice"
+        },
+        "bedroom_choice": {
+            "video": "canyon.mp4",
+            "choice": {
+                "prompt": "Where do you go?",
+                "options": {
+                    "To the hallway of Harsh": "harsh",
+                    "To Adi's bedroom": "adi"
+                }
+            }
+        },
+        "harsh": {
+            "video": "harsh.webm",
+            "next": ""
+        },
+        "adi": {
+            "video": "adi.webm",
+            "next": ""
+        }
+    }
+}
