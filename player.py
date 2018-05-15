@@ -65,6 +65,9 @@ class VideoWindow(QMainWindow):
         self.setCursor(Qt.BlankCursor)
         #self.setStyleSheet("background-color: rgba(255, 0, 0, 50%);")
 
+        #WRepaintNoErase
+        #WResizeNoErase
+
         # Video item
 
         self.shortcut = QShortcut(QKeySequence("Q"), self)
@@ -83,9 +86,10 @@ class VideoWindow(QMainWindow):
 
 
         self.pipeline = Gst.parse_launch(
-            'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
-        cairo_overlay = self.pipeline.get_by_name('overlay')
-        cairo_overlay.connect('draw', self.on_draw)
+            #'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
+            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/vsync.mp4 ! decodebin name=dec ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
+        #cairo_overlay = self.pipeline.get_by_name('overlay')
+        #cairo_overlay.connect('draw', self.on_draw)
 
         sink = self.pipeline.get_by_name('sink')
         xid = self.winId()
@@ -165,8 +169,8 @@ if __name__ == '__main__':
 
     video = world.get_video()
     player.openFile(video)
-    #player.showFullScreen()
-    player.show()
+    player.showFullScreen()
+    #player.show()
     player.play()
 
     sys.exit(app.exec_())
