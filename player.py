@@ -11,6 +11,15 @@ import argparse
 import json
 import time
 
+
+import random
+import cairo
+import gi
+gi.require_version('Gst', '1.0')
+gi.require_foreign('cairo')
+from gi.repository import Gst, GObject, GstVideo
+
+
 class World:
     def __init__(self, filename):
         self.world_path = os.path.abspath(filename)
@@ -43,32 +52,7 @@ class World:
         current_room = self.data["rooms"][self.current_room_name]
         return current_room["choice"] if "choice" in current_room else None
 
-class ChoiceOverlay(QWidget):
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.setAttribute(Qt.WA_NoSystemBackground)
-        self.setAttribute(Qt.WA_TransparentForMouseEvents)
-        self.setWindowFlags(Qt.FramelessWindowHint)
-        self.setAttribute(Qt.WA_TranslucentBackground)
-
-
-
-        self.text = "Лев Николаевич Толстой\nАнна Каренина"
-
-    def paintEvent(self, event):
-        qp = QPainter()
-        qp.begin(self)
-        qp.fillRect(event.rect(), QBrush(QColor(128, 128, 255, 128)))
-        self.drawText(event, qp)
-        qp.end()
-
-    def drawText(self, event, qp):
-        qp.setPen(QColor(168, 34, 3))
-        #qp.setFont(QFont('Decorative', 10))
-        qp.drawText(event.rect(), Qt.AlignCenter, self.text)
-
-class VideoWindow(QGraphicsView):
+class VideoWindow(QMainWindow):
  
     def __init__(self, world, parent=None):
         super(VideoWindow, self).__init__(parent)
@@ -76,28 +60,12 @@ class VideoWindow(QGraphicsView):
         self.setWindowTitle("Averoid Adventures") 
         self.world = world
         #self.setWindowFlags(Qt.CustomizeWindowHint | Qt.FramelessWindowHint)
+        #self.setAttribute(Qt.WA_TranslucentBackground)
+        #self.setAttribute(Qt.WA_NoSystemBackground, True)
         self.setCursor(Qt.BlankCursor)
-        self.setBackgroundBrush(QBrush(Qt.black, Qt.SolidPattern))
+        #self.setStyleSheet("background-color: rgba(255, 0, 0, 50%);")
 
         # Video item
-        self.videoItem = QGraphicsVideoItem()
-        self.videoItem.nativeSizeChanged.connect(self.resize)
-
-        # Overlay item
-        self.overlayItem = QGraphicsRectItem()
-        
-        # Media player
-        self.mediaPlayer = QMediaPlayer(None, QMediaPlayer.VideoSurface)
-        self.mediaPlayer.mediaStatusChanged.connect(self.mediaStatusChanged)
-        self.mediaPlayer.error.connect(self.error)
-        self.mediaPlayer.setVideoOutput(self.videoItem)
-
-
-
-        scene = QGraphicsScene(self)
-        scene.addItem(self.videoItem)
-        self.setScene(scene)
-
 
         self.shortcut = QShortcut(QKeySequence("Q"), self)
         self.shortcut.activated.connect(self.exitCall)
@@ -112,30 +80,50 @@ class VideoWindow(QGraphicsView):
         #button.show()
 
 
+
+
+        self.pipeline = Gst.parse_launch(
+            'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
+        cairo_overlay = self.pipeline.get_by_name('overlay')
+        cairo_overlay.connect('draw', self.on_draw)
+
+        sink = self.pipeline.get_by_name('sink')
+        xid = self.winId()
+        sink.set_window_handle (xid)
+
+        self.pipeline.set_state(Gst.State.PLAYING)
+
  
     def openFile(self, fileName):
-        if fileName != '':
+        pass
+        '''if fileName != '':
             self.mediaPlayer.setMedia(
                     QMediaContent(QUrl.fromLocalFile(fileName)))
-            self.fitInView(self.videoItem.boundingRect(), Qt.KeepAspectRatio)
+            self.fitInView(self.videoItem.boundingRect(), Qt.KeepAspectRatio)'''
  
     def exitCall(self):
+        print("Exit")
+        self.pipeline.set_state(Gst.State.NULL)
         sys.exit(app.exec_())
         
     def play(self):
-        self.mediaPlayer.play()
+        pass
+        #self.mediaPlayer.play()
 
     def pause(self):
-        self.mediaPlayer.pause()
+        pass
+        #self.mediaPlayer.pause()
 
     def play_pause_toggle(self):
-        if self.mediaPlayer.state() == QMediaPlayer.PlayingState:
+        pass
+        '''if self.mediaPlayer.state() == QMediaPlayer.PlayingState:
             self.pause()
         else:
-            self.play()
+            self.play()'''
 
     def mediaStatusChanged(self, status):
-        print("Status: {}".format(status))
+        pass
+        '''print("Status: {}".format(status))
         if status == QMediaPlayer.EndOfMedia:
             if self.world.next_room():
                 choice = self.world.get_choice()
@@ -147,38 +135,25 @@ class VideoWindow(QGraphicsView):
                     self.openFile(video)
                     self.play()
             else:
-                sys.exit(app.exec_())
+                sys.exit(app.exec_())'''
+
+
+    def on_draw(self, _overlay, context, _timestamp, _duration):
+        """Each time the 'draw' signal is emitted"""
+        context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        context.set_font_size(20)
+        context.move_to(100, 100)
+        context.text_path('Fun Avery fact: {}'.format(random.randint(1,5)))
+        context.set_source_rgba(1, 1, 1, 0.75)
+        context.fill_preserve()
 
     def error(self, error):
         print("Error: {}".format(error))
 
-    def resizeEvent(self, event):
-        print("Resizing")
-        self.resize()
-
-    def resize(self):
-        self.fitInView(self.videoItem.boundingRect(), Qt.KeepAspectRatio)
-
-    #override arbitrary and unwanted margins: https://bugreports.qt.io/browse/QTBUG-42331 - based on QT sources
-    '''def fitInView(self, item, flags = Qt.IgnoreAspectRatio):
-        rect = item.boundingRect()
-        if self.scene() is None or rect.isNull():
-            return
-        self.last_scene_roi = rect
-        unity = self.transform().mapRect(QRectF(0, 0, 1, 1))
-        self.scale(1/unity.width(), 1/unity.height())
-        viewRect = self.viewport().rect()
-        sceneRect = self.transform().mapRect(rect)
-        xratio = viewRect.width() / sceneRect.width()
-        yratio = viewRect.height() / sceneRect.height()
-        if flags == Qt.KeepAspectRatio:
-            xratio = yratio = min(xratio, yratio)
-        elif flags == Qt.KeepAspectRatioByExpanding:
-            xratio = yratio = max(xratio, yratio)
-        self.scale(xratio, yratio)
-        self.centerOn(rect.center())'''
  
 if __name__ == '__main__':
+    GObject.threads_init()
+    Gst.init(None)
     parser = argparse.ArgumentParser()
     parser.add_argument('filename')
     args = parser.parse_args()
@@ -190,8 +165,8 @@ if __name__ == '__main__':
 
     video = world.get_video()
     player.openFile(video)
-    player.showFullScreen()
-    #player.show()
+    #player.showFullScreen()
+    player.show()
     player.play()
 
     sys.exit(app.exec_())
