@@ -29,8 +29,11 @@ class Player():
         self.timeline.commit()
 
 
-
+        sink_bin = Gst.Bin.new("video_sink_bin")
+        overlay = Gst.ElementFactory.make("cairooverlay", "overlay")
+        overlay.connect('draw', self.on_draw)
         sink = Gst.ElementFactory.make("xvimagesink", "sink")
+        overlay.link(sink)
 
         self.pipeline = GES.Pipeline()
         self.pipeline.set_mode(GES.PipelineFlags.FULL_PREVIEW)

@@ -87,9 +87,15 @@ class VideoWindow(QMainWindow):
 
         self.pipeline = Gst.parse_launch(
             #'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
-            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/vsync.mp4 ! decodebin name=dec ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
-        #cairo_overlay = self.pipeline.get_by_name('overlay')
-        #cairo_overlay.connect('draw', self.on_draw)
+            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/canyon.mp4 ! decodebin name=dec ! videoconvert ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
+        cairo_overlay = self.pipeline.get_by_name('overlay')
+        if cairo_overlay != None:
+            cairo_overlay.connect('draw', self.on_draw)
+
+        image_overlay = self.pipeline.get_by_name('image')
+        if image_overlay != None:
+            print("SETTING ALPHA")
+            image_overlay.alpha = 0.5
 
         sink = self.pipeline.get_by_name('sink')
         xid = self.winId()
@@ -143,6 +149,7 @@ class VideoWindow(QMainWindow):
 
 
     def on_draw(self, _overlay, context, _timestamp, _duration):
+        print("DRAW")
         """Each time the 'draw' signal is emitted"""
         context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
         context.set_font_size(20)
