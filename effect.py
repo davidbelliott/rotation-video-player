@@ -7,7 +7,7 @@ from gi.repository import GES, Gst, GLib, Gtk, Gdk
 # File URL http://download.blender.org/peach/trailer/trailer_400p.ogg
 
 videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/canyon_short.mp4"
-videoFile2 = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/canyon.mp4"
+videoFile2 = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/jellyfish.mp4"
 
 
 class Player():
@@ -21,7 +21,6 @@ class Player():
         self.asset2 = GES.UriClipAsset.request_sync(videoFile2)
         
         self.layer = GES.Layer()
-        self.layer.set_auto_transition(True)
         self.timeline.add_layer(self.layer)
         #layer.add_clip(GES.Asset.extract(asset))
         #layer.add_clip(GES.Asset.extract(asset2))
@@ -81,7 +80,7 @@ class Player():
 
     def on_a_pressed(self, *args):
         print("ADDING")
-        self.layer.add_asset(self.asset, self.layer.get_duration() - 1 * Gst.SECOND, 0, self.asset.get_duration(), self.asset.get_supported_formats())
+        self.layer.add_asset(self.asset2, Gst.CLOCK_TIME_NONE, 0, self.asset2.get_duration(), self.asset2.get_supported_formats())
         self.timeline.commit()
 
     def on_q_pressed(self, *args):
