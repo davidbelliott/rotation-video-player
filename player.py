@@ -52,6 +52,46 @@ class World:
         current_room = self.data["rooms"][self.current_room_name]
         return current_room["choice"] if "choice" in current_room else None
 
+class ChoiceBox:
+    
+    def __init__(self, text, pattern, x, y):
+        self.text = text
+        self.pattern = pattern
+        self.x = x
+        self.display_x = x
+        self.y = y
+        self.display_y = y
+        self.vx = random.uniform(-1, 1)
+        self.vy = random.uniform(-1, 1)
+
+    def update(self):
+        MAX_SPEED = 0.5
+        DAMPING = 0.2
+        self.display_x += self.vx
+        self.display_y += self.vy
+        display_x_offset = self.display_x - self.x
+        display_y_offset = self.display_y - self.y
+        if random.randint(0, 5) == 0:
+            self.vx = random.uniform(-MAX_SPEED-display_x_offset*DAMPING, MAX_SPEED-display_x_offset*DAMPING)
+            self.vy = random.uniform(-MAX_SPEED-display_y_offset*DAMPING, MAX_SPEED-display_y_offset*DAMPING)
+
+    def draw(self, context, timestamp):
+        context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        context.set_font_size(20)
+
+        margin = 10
+        
+        extents = context.text_extents(self.text)
+        context.rectangle(self.display_x, self.display_y, extents.width + 2 * margin, extents.height + 2 * margin)
+        context.set_source(self.pattern)
+        context.fill()
+
+        context.move_to(self.display_x + margin, self.display_y + extents.height + margin)
+        context.text_path(self.text)
+        print(extents)
+        context.set_source_rgba(1, 1, 1, 1)
+        context.fill_preserve()
+
 class VideoWindow(QMainWindow):
  
     def __init__(self, world, parent=None):
@@ -82,12 +122,14 @@ class VideoWindow(QMainWindow):
         #button = QPushButton("push me", player)
         #button.show()
 
+        self.boxes = [ChoiceBox("WELCOME TO AVEROID ADVENTURES", cairo.SolidPattern(1, 0, 0), 100, 100)]
+
 
 
 
         self.pipeline = Gst.parse_launch(
             #'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
-            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/canyon.mp4 ! decodebin name=dec ! videoconvert ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
+            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/guigu.mp4 ! decodebin name=dec ! videoconvert ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
         cairo_overlay = self.pipeline.get_by_name('overlay')
         if cairo_overlay != None:
             cairo_overlay.connect('draw', self.on_draw)
@@ -102,6 +144,8 @@ class VideoWindow(QMainWindow):
         sink.set_window_handle (xid)
 
         self.pipeline.set_state(Gst.State.PLAYING)
+
+
 
  
     def openFile(self, fileName):
@@ -148,15 +192,25 @@ class VideoWindow(QMainWindow):
                 sys.exit(app.exec_())'''
 
 
-    def on_draw(self, _overlay, context, _timestamp, _duration):
+    def on_draw(self, _overlay, context, timestamp, _duration):
         print("DRAW")
         """Each time the 'draw' signal is emitted"""
-        context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
-        context.set_font_size(20)
-        context.move_to(100, 100)
-        context.text_path('Fun Avery fact: {}'.format(random.randint(1,5)))
-        context.set_source_rgba(1, 1, 1, 0.75)
-        context.fill_preserve()
+        """COLOR_PERIOD = 2E9
+        colors = [[1.0, 1.0, 0.0], [0.0, 1.0, 1.0]]
+        cycle_progression = timestamp % (COLOR_PERIOD * len(colors)) / COLOR_PERIOD
+        current_progression = timestamp % COLOR_PERIOD / COLOR_PERIOD
+        previous_color = int(cycle_progression)
+        target_color = (previous_color + 1) % len(colors)
+        current_color = [colors[previous_color][i] * (1-current_progression) + colors[target_color][i] * current_progression for i in range(0, 3)]
+        context.set_source_rgba(current_color[0], current_color[1], current_color[2], 0.8)
+        context.rectangle(20, 20, 300, 100)
+        context.fill()
+        context.stroke()"""
+
+        for box in self.boxes:
+            box.draw(context, timestamp)
+            box.update()
+
 
     def error(self, error):
         print("Error: {}".format(error))

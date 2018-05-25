@@ -6,7 +6,7 @@ from gi.repository import GES, Gst, GLib, Gtk, Gdk
 
 # File URL http://download.blender.org/peach/trailer/trailer_400p.ogg
 
-videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/canyon_short.mp4"
+videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/guigu.mp4"
 videoFile2 = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/jellyfish.mp4"
 
 
@@ -101,5 +101,15 @@ class Player():
         if message.type == Gst.MessageType.EOS:
             print("EOS")
             self.quit()
+
+    def on_draw(self, _overlay, context, _timestamp, _duration):
+        """Each time the 'draw' signal is emitted"""
+        print("DRAW")
+        context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_NORMAL)
+        context.set_font_size(20)
+        context.move_to(100, 100)
+        context.text_path('Fun Avery fact: {}'.format(random.randint(1,5)))
+        context.set_source_rgba(1, 1, 1, 0.75)
+        context.fill_preserve()
   
 Player()
