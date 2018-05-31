@@ -17,8 +17,9 @@ import cairo
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_foreign('cairo')
-from gi.repository import Gst, GObject, GstVideo
+from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
 
+videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/avery_tour.mp4"
 
 class World:
     def __init__(self, filename):
@@ -99,7 +100,7 @@ class ChoiceBox:
 
         context.move_to(self.display_x + margin, self.display_y + extents.height + margin)
         context.text_path(self.text)
-        print(extents)
+        #print(extents)
         context.set_source_rgba(0, 0, 1, 1)
         context.fill()
 
@@ -112,7 +113,7 @@ class ChoicesDialog:
         y = 100
         dy = 100
         dx = 0
-        print("LONGEST: {}".format(longest_text))
+        #print("LONGEST: {}".format(longest_text))
         for text in texts:
             self.boxes.append(ChoiceBox(text, cairo.SolidPattern(1, 0, 0), x, y, longest_text))
             y += dy
@@ -127,53 +128,78 @@ class ChoicesDialog:
             box.update()
 
 
-class VideoWindow(QMainWindow):
+class Player:
  
-    def __init__(self, world, parent=None):
-        super(VideoWindow, self).__init__(parent)
+    def __init__(self):
 
-        self.setWindowTitle("Averoid Adventures") 
         self.world = world
-        #self.setWindowFlags(Qt.CustomizeWindowHint | Qt.FramelessWindowHint)
-        #self.setAttribute(Qt.WA_TranslucentBackground)
-        #self.setAttribute(Qt.WA_NoSystemBackground, True)
-        self.setCursor(Qt.BlankCursor)
-        #self.setStyleSheet("background-color: rgba(255, 0, 0, 50%);")
 
-        #WRepaintNoErase
-        #WResizeNoErase
-
-        # Video item
-
-        self.shortcut = QShortcut(QKeySequence("Q"), self)
-        self.shortcut.activated.connect(self.exitCall)
-
-        self.play_shortcut = QShortcut(QKeySequence("P"), self)
-        self.play_shortcut.activated.connect(self.play_pause_toggle)
+        self.choices = ChoicesDialog(["WELCOME TO AVEROID ADVENTURES", "WHAT WILL YOU DO TODAY", "PLAN S", "TEST 1", "TEST 2", "TEST 3", "MORE TEXT"])
 
 
+
+
+        self.timeline = GES.Timeline.new_audio_video()
+        self.asset = GES.UriClipAsset.request_sync(videoFile)
+
+        self.layer = GES.Layer()
+        self.timeline.add_layer(self.layer)
+        self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
+        self.timeline.commit()
+
+        self.pipeline = GES.Pipeline()
+        self.pipeline.set_timeline(self.timeline)
+        self.pipeline.set_state(Gst.State.PLAYING)
+
+        bin = Gst.Bin.new("my-bin")
+        convert1 = Gst.ElementFactory.make("videoconvert")
+        bin.add(convert1)
+        pad = convert1.get_static_pad("sink")
+        ghostpad = Gst.GhostPad.new("sink", pad)
+        bin.add_pad(ghostpad)
+        cairooverlay = Gst.ElementFactory.make("cairooverlay")
+        bin.add(cairooverlay)
+        cairooverlay.connect('draw', self.on_draw)
+        convert1.link(cairooverlay)
+        convert2 = Gst.ElementFactory.make("videoconvert")
+        bin.add(convert2)
+        cairooverlay.link(convert2)
+        videosink = Gst.ElementFactory.make("xvimagesink")
+        bin.add(videosink)
+        convert2.link(videosink)
+
+        self.pipeline.preview_set_video_sink(bin)
+
+        window = Gtk.Window()
+        window.set_title("Averoid Adventures")
+
+        #drawing_area = Gtk.DrawingArea()
+        #drawing_area.set_double_buffered (True)
+        #drawing_area.set_name("drawing_area")
+        #drawing_area.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(255, 255, 255, 255))
+        window.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(255, 255, 0, 255))
+
+        #window.add(drawing_area)
+
+        accel = Gtk.AccelGroup()
+        accel.connect(Gdk.keyval_from_name('Q'), 0, 0, self.on_q_pressed)
+        accel.connect(Gdk.keyval_from_name('A'), 0, 0, self.on_a_pressed)
+        window.add_accel_group(accel)
+
+        window.connect("delete-event", self.window_closed)
+
+        window.show_all()
+        window.realize()
+        window.fullscreen()
+
+        xid = window.get_window().get_xid()
+        videosink.set_window_handle (xid)
+
+        
         #overlay.move(0, 0)
 
         #button = QPushButton("push me", player)
         #button.show()
-
-        self.choices = ChoicesDialog(["WELCOME TO AVEROID ADVENTURES", "WHAT WILL YOU DO TODAY", "PLAN S", "TEST 1", "TEST 2", "TEST 3", "MORE TEXT"])
-
-        self.pipeline = Gst.parse_launch(
-            #'videotestsrc ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink')
-            'filesrc location=/home/david/gdrive/avery_house/rotation_video/player/videos/vsync.mp4 ! decodebin name=dec ! videoconvert ! cairooverlay name=overlay ! videoconvert ! xvimagesink name=sink dec. ! audioconvert ! audioresample ! alsasink')
-        cairo_overlay = self.pipeline.get_by_name('overlay')
-        if cairo_overlay != None:
-            cairo_overlay.connect('draw', self.on_draw)
-
-        image_overlay = self.pipeline.get_by_name('image')
-        if image_overlay != None:
-            print("SETTING ALPHA")
-            image_overlay.alpha = 0.5
-
-        sink = self.pipeline.get_by_name('sink')
-        xid = self.winId()
-        sink.set_window_handle (xid)
 
         self.pipeline.set_state(Gst.State.PLAYING)
 
@@ -225,44 +251,44 @@ class VideoWindow(QMainWindow):
 
 
     def on_draw(self, _overlay, context, timestamp, _duration):
-        print("DRAW")
-        """Each time the 'draw' signal is emitted"""
-        """COLOR_PERIOD = 2E9
-        colors = [[1.0, 1.0, 0.0], [0.0, 1.0, 1.0]]
-        cycle_progression = timestamp % (COLOR_PERIOD * len(colors)) / COLOR_PERIOD
-        current_progression = timestamp % COLOR_PERIOD / COLOR_PERIOD
-        previous_color = int(cycle_progression)
-        target_color = (previous_color + 1) % len(colors)
-        current_color = [colors[previous_color][i] * (1-current_progression) + colors[target_color][i] * current_progression for i in range(0, 3)]
-        context.set_source_rgba(current_color[0], current_color[1], current_color[2], 0.8)
-        context.rectangle(20, 20, 300, 100)
-        context.fill()
-        context.stroke()"""
-
+        time = self.asset.get_base_time()
+        print(time)
         self.choices.draw(context, timestamp)
         self.choices.update()
 
+    def on_q_pressed(self, *args):
+        self.quit()
+
+    def on_a_pressed(self, *args):
+        pass
+
+    def quit(self):
+        self.pipeline.set_state(Gst.State.NULL)
+        Gtk.main_quit()
+        exit(0)
+
+    def window_closed(self, widget, event):
+        self.quit()
 
     def error(self, error):
         print("Error: {}".format(error))
 
  
 if __name__ == '__main__':
+    Gst.init(None)
+    GES.init()
     GObject.threads_init()
     Gst.init(None)
     parser = argparse.ArgumentParser()
     parser.add_argument('filename')
     args = parser.parse_args()
 
-    app = QApplication(sys.argv)
     world = World(args.filename)
 
-    player = VideoWindow(world)
+    player = Player()
 
     video = world.get_video()
     player.openFile(video)
-    player.showFullScreen()
-    #player.show()
-    player.play()
 
-    sys.exit(app.exec_())
+    mainLoop = GLib.MainLoop.new(None, False)
+    GLib.MainLoop().run()
