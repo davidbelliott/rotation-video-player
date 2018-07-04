@@ -10,6 +10,8 @@ import os, sys
 import argparse
 import json
 import time
+import pygame
+from collections import OrderedDict
 
 
 import random
@@ -18,21 +20,39 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_foreign('cairo')
 from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
+mainLoop = GLib.MainLoop.new(None, False)
 
-videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/avery_tour.mp4"
+_sound_library = {}
+def play_sound(path):
+    global _sound_library
+    sound = _sound_library.get(path)
+    if sound == None:
+        canonicalized_path = path.replace('/', os.sep).replace('\\', os.sep)
+        sound = pygame.mixer.Sound(canonicalized_path)
+        _sound_library[path] = sound
+    sound.play()
+
+videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/main.mp4"
+audioFile = "/home/david/gdrive/avery_house/rotation_video/player/videos/ding.wav"
+
 
 class World:
     def __init__(self, filename):
         self.world_path = os.path.abspath(filename)
         self.video_path = os.path.join(os.path.dirname(self.world_path), "videos")
-        with open(self.world_path) as json_data:
-            self.data = json.load(json_data)
-        self.current_room_name = self.data["starting_room"]
+        with open(self.world_path) as json_datafile:
+            self.data = json.load(json_datafile, object_pairs_hook=OrderedDict)
+        print(json.dumps(self.data, indent=4))
+        self.labels = self.data["labels"]
+        self.current_label = self.data["starting_label"]
+        self.current_label_index = list(self.data["labels"].keys()) \
+                .index(self.current_label)
 
-    def next_room(self):
-        print("Getting next room...")
-        current_room = self.data["rooms"][self.current_room_name]
+    def set_label(self):
+        print("Setting label...")
+        current_label = self.data["labels"][self.current_room_name]
         has_choice = False
+        has_jump = False
         has_next = False
         if "choice" in current_room:
             has_choice = True
@@ -45,28 +65,32 @@ class World:
 
         return (self.current_room_name != "")
 
-    def get_video(self):
-        current_room = self.data["rooms"][self.current_room_name]
-        return os.path.join(self.video_path, current_room["video"])
-    
     def get_choice(self):
         current_room = self.data["rooms"][self.current_room_name]
         return current_room["choice"] if "choice" in current_room else None
+
+    def update(self, player, timestamp):
+        return
 
 MAX_SPEED = 0.5
 DAMPING = 0.1
 class ChoiceBox:
     
-    def __init__(self, text, pattern, x, y, reftext=''):
+    def __init__(self, text, pattern, color, x, y, reftext='', display_x=None, display_y=None, choosable=False):
         self.text = text
-        self.reftext = reftext
         self.pattern = pattern
+        self.color = color
         self.x = x
-        self.display_x = x
+        self.display_x = x if display_x == None else display_x
         self.y = y
-        self.display_y = y
-        self.vx = random.uniform(-MAX_SPEED, MAX_SPEED)
-        self.vy = random.uniform(-MAX_SPEED, MAX_SPEED)
+        self.display_y = y if display_y == None else display_y
+        self.reftext = reftext
+        display_x_offset = self.display_x - self.x
+        display_y_offset = self.display_y - self.y
+        self.vx = random.uniform(-MAX_SPEED-display_x_offset*DAMPING, MAX_SPEED-display_x_offset*DAMPING)
+        self.vy = random.uniform(-MAX_SPEED-display_y_offset*DAMPING, MAX_SPEED-display_y_offset*DAMPING)
+        self.fill_percent = 0.0
+        self.choosable = choosable
 
     def update(self):
         self.display_x += self.vx
@@ -77,6 +101,10 @@ class ChoiceBox:
             self.vx = random.uniform(-MAX_SPEED-display_x_offset*DAMPING, MAX_SPEED-display_x_offset*DAMPING)
             self.vy = random.uniform(-MAX_SPEED-display_y_offset*DAMPING, MAX_SPEED-display_y_offset*DAMPING)
 
+        if random.randint(0, 100) == 0 and self.choosable:
+            self.fill_percent = min(self.fill_percent + 0.1, 1)
+            play_sound(audioFile)
+
     def draw(self, context, timestamp):
         context.select_font_face('Noto Sans', cairo.FONT_SLANT_ITALIC, cairo.FONT_WEIGHT_BOLD)
         context.set_font_size(40)
@@ -85,14 +113,14 @@ class ChoiceBox:
 
         
         extents = context.text_extents(self.reftext if self.reftext != '' else self.text)
-        context.rectangle(self.display_x, self.display_y, (extents.width + 2 * margin)*((timestamp % 1E9)/1E9), extents.height + 2 * margin)
+        context.rectangle(self.display_x, self.display_y, (extents.width + 2 * margin)*self.fill_percent, extents.height + 2 * margin)
         context.set_source(self.pattern)
         context.fill()
 
         context.rectangle(self.display_x, self.display_y, extents.width + 2 * margin, extents.height + 2 * margin)
 
         dashes = [30.0, 10.0]
-        context.set_source_rgba(0, 0, 1, 1)
+        context.set_source_rgba(*self.color)
         context.set_line_width(5)
         context.set_dash(dashes, timestamp / 1E7)
         context.set_line_join(cairo.LINE_JOIN_BEVEL)
@@ -101,7 +129,7 @@ class ChoiceBox:
         context.move_to(self.display_x + margin, self.display_y + extents.height + margin)
         context.text_path(self.text)
         #print(extents)
-        context.set_source_rgba(0, 0, 1, 1)
+        context.set_source_rgba(*self.color)
         context.fill()
 
 class ChoicesDialog:
@@ -109,13 +137,13 @@ class ChoicesDialog:
     def __init__(self, texts):
         self.boxes = []
         longest_text = max(texts, key=len)
-        x = 100
-        y = 100
+        x = 910
+        y = 610
         dy = 100
         dx = 0
         #print("LONGEST: {}".format(longest_text))
-        for text in texts:
-            self.boxes.append(ChoiceBox(text, cairo.SolidPattern(1, 0, 0), x, y, longest_text))
+        for i, text in enumerate(texts):
+            self.boxes.append(ChoiceBox(text, cairo.SolidPattern(0.5, 0.5, 0.5, 0.5), [0, 0, 0, 1], x, y, longest_text, 1920, 1080, i!=0))
             y += dy
             x += dx
 
@@ -130,84 +158,65 @@ class ChoicesDialog:
 
 class Player:
  
-    def __init__(self):
-
+    def __init__(self, world):
+        # member initialization
         self.world = world
+        #self.choices = ChoicesDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
+        self.active_choices = None
+        self.fullscreen = False
 
-        self.choices = ChoicesDialog(["WELCOME TO AVEROID ADVENTURES", "WHAT WILL YOU DO TODAY", "PLAN S", "TEST 1", "TEST 2", "TEST 3", "MORE TEXT"])
-
-
-
-
+        #GES stuff
         self.timeline = GES.Timeline.new_audio_video()
-        self.asset = GES.UriClipAsset.request_sync(videoFile)
-
         self.layer = GES.Layer()
         self.timeline.add_layer(self.layer)
-        self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
-        self.timeline.commit()
+        self.openFile(videoFile)
 
         self.pipeline = GES.Pipeline()
         self.pipeline.set_timeline(self.timeline)
         self.pipeline.set_state(Gst.State.PLAYING)
 
-        bin = Gst.Bin.new("my-bin")
-        convert1 = Gst.ElementFactory.make("videoconvert")
-        bin.add(convert1)
-        pad = convert1.get_static_pad("sink")
+        # GES bins
+        sinkbin = Gst.Bin.new("sinkbin")
         ghostpad = Gst.GhostPad.new("sink", pad)
-        bin.add_pad(ghostpad)
+        sinkbin.add_pad(ghostpad)
+        convert1 = Gst.ElementFactory.make("videoconvert")
+        sinkbin.add(convert1)
+        pad = convert1.get_static_pad("sink")
         cairooverlay = Gst.ElementFactory.make("cairooverlay")
-        bin.add(cairooverlay)
+        sinkbin.add(cairooverlay)
         cairooverlay.connect('draw', self.on_draw)
         convert1.link(cairooverlay)
         convert2 = Gst.ElementFactory.make("videoconvert")
-        bin.add(convert2)
+        sinkbin.add(convert2)
         cairooverlay.link(convert2)
         videosink = Gst.ElementFactory.make("xvimagesink")
-        bin.add(videosink)
+        sinkbin.add(videosink)
         convert2.link(videosink)
+        self.pipeline.preview_set_video_sink(sinkbin)
 
-        self.pipeline.preview_set_video_sink(bin)
-
-        window = Gtk.Window()
-        window.set_title("Averoid Adventures")
-
-        #drawing_area = Gtk.DrawingArea()
-        #drawing_area.set_double_buffered (True)
-        #drawing_area.set_name("drawing_area")
-        #drawing_area.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(255, 255, 255, 255))
-        window.override_background_color(Gtk.StateType.NORMAL, Gdk.RGBA(255, 255, 0, 255))
-
-        #window.add(drawing_area)
+        # GTK window stuff
+        self.window = Gtk.Window()
+        self.window.set_title("Averoid Adventures")
 
         accel = Gtk.AccelGroup()
         accel.connect(Gdk.keyval_from_name('Q'), 0, 0, self.on_q_pressed)
-        accel.connect(Gdk.keyval_from_name('A'), 0, 0, self.on_a_pressed)
-        window.add_accel_group(accel)
+        accel.connect(Gdk.keyval_from_name('F'), 0, 0, self.on_f_pressed)
+        self.window.add_accel_group(accel)
 
-        window.connect("delete-event", self.window_closed)
+        self.window.connect("delete-event", self.window_closed)
 
-        window.show_all()
-        window.realize()
-        window.fullscreen()
+        self.window.show_all()
+        self.window.realize()
+        #window.fullscreen()
 
-        xid = window.get_window().get_xid()
+        xid = self.window.get_window().get_xid()
         videosink.set_window_handle (xid)
-
-        
-        #overlay.move(0, 0)
-
-        #button = QPushButton("push me", player)
-        #button.show()
-
-        self.pipeline.set_state(Gst.State.PLAYING)
-
-
 
  
     def openFile(self, fileName):
-        pass
+        self.asset = GES.UriClipAsset.request_sync(videoFile)
+        self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
+        self.timeline.commit()
         '''if fileName != '':
             self.mediaPlayer.setMedia(
                     QMediaContent(QUrl.fromLocalFile(fileName)))
@@ -251,20 +260,29 @@ class Player:
 
 
     def on_draw(self, _overlay, context, timestamp, _duration):
-        time = self.asset.get_base_time()
-        print(time)
-        self.choices.draw(context, timestamp)
-        self.choices.update()
+        (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
+        print("{} / {}".format(timestamp/1e9, duration/1e9))
+        self.world.update(self, timestamp)
+        if self.active_choices != None:
+            self.active_choices.draw(context, timestamp)
+            self.active_choices.update()
+        elif (duration - timestamp)/1e9 <= 25:
+            self.active_choices = self.choices
 
     def on_q_pressed(self, *args):
         self.quit()
 
-    def on_a_pressed(self, *args):
-        pass
+    def on_f_pressed(self, *args):
+        if not self.fullscreen:
+            self.window.fullscreen()
+            self.fullscreen = True
+        else:
+            self.window.unfullscreen()
+            self.fullscreen = False
 
     def quit(self):
         self.pipeline.set_state(Gst.State.NULL)
-        Gtk.main_quit()
+        mainLoop.quit()
         exit(0)
 
     def window_closed(self, widget, event):
@@ -279,16 +297,14 @@ if __name__ == '__main__':
     GES.init()
     GObject.threads_init()
     Gst.init(None)
+    pygame.init()
+    pygame.mixer.init()
     parser = argparse.ArgumentParser()
     parser.add_argument('filename')
     args = parser.parse_args()
 
     world = World(args.filename)
+    player = Player(world)
 
-    player = Player()
 
-    video = world.get_video()
-    player.openFile(video)
-
-    mainLoop = GLib.MainLoop.new(None, False)
     GLib.MainLoop().run()
