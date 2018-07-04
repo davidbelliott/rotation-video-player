@@ -1,26 +1,27 @@
 {
-    "starting_room": "bedroom",
-    "rooms": {
-        "bedroom": {
-            "video": "canyon.mp4",
-            "next": "bedroom_choice"
+    "starting_label": "avery_tour_start",
+    "labels": {
+        "avery_tour_start": {
+            "time": 0,
+            "next": "upstairs_downstairs_choice"
         },
-        "bedroom_choice": {
-            "video": "canyon.mp4",
+        "upstairs_downstairs_choice": {
+            "time": 1,
             "choice": {
                 "prompt": "Where do you go?",
                 "options": {
-                    "To the hallway of Harsh": "harsh",
-                    "To Adi's bedroom": "adi"
-                }
+                    "upstairs": {"text": "Go upstairs", "jump": "upstairs"},
+                    "downstairs": {"text": "Stay downstairs", "jump": "downstairs"}
+                },
+                "duration": 10
             }
         },
-        "harsh": {
-            "video": "harsh.webm",
+        "upstairs": {
+            "time": 60,
             "next": ""
         },
-        "adi": {
-            "video": "adi.webm",
+        "downstairs": {
+            "time": 120,
             "next": ""
         }
     }

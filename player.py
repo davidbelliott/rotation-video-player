@@ -12,6 +12,7 @@ import json
 import time
 import pygame
 from collections import OrderedDict
+from enum import Enum
 
 
 import random
@@ -36,6 +37,28 @@ videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/
 audioFile = "/home/david/gdrive/avery_house/rotation_video/player/videos/ding.wav"
 
 
+class Option:
+    def __init__(self, json_data):
+        self.text = json_data['text']
+        self.jump = json_data['jump']
+        self.votes = 0
+
+class Choice:
+    def __init__(self, json_data):
+        self.prompt = json_data['prompt']
+        self.options = {key: Option(value) for (key, value) in json_data['options'].items()}
+        self.duration = json_data['duration']
+
+
+class Label:
+    def __init__(self, name, json_data):
+        self.name = name
+        self.time = json_data['time']
+        self.next = json_data['next'] if 'next' in json_data else None
+        self.choice = Choice(json_data['choice']) if 'choice' in json_data else None
+        self.jump = json_data['jump'] if 'jump' in json_data else None
+
+
 class World:
     def __init__(self, filename):
         self.world_path = os.path.abspath(filename)
@@ -48,29 +71,9 @@ class World:
         self.current_label_index = list(self.data["labels"].keys()) \
                 .index(self.current_label)
 
-    def set_label(self):
-        print("Setting label...")
-        current_label = self.data["labels"][self.current_room_name]
-        has_choice = False
-        has_jump = False
-        has_next = False
-        if "choice" in current_room:
-            has_choice = True
-        elif "next" in current_room:
-            has_next = True
-        if has_next:
-            self.current_room_name = current_room["next"]
-        else:
-            self.current_room_name = ""
-
-        return (self.current_room_name != "")
-
-    def get_choice(self):
-        current_room = self.data["rooms"][self.current_room_name]
-        return current_room["choice"] if "choice" in current_room else None
-
     def update(self, player, timestamp):
         return
+
 
 MAX_SPEED = 0.5
 DAMPING = 0.1
@@ -101,9 +104,9 @@ class ChoiceBox:
             self.vx = random.uniform(-MAX_SPEED-display_x_offset*DAMPING, MAX_SPEED-display_x_offset*DAMPING)
             self.vy = random.uniform(-MAX_SPEED-display_y_offset*DAMPING, MAX_SPEED-display_y_offset*DAMPING)
 
-        if random.randint(0, 100) == 0 and self.choosable:
+        '''if random.randint(0, 100) == 0 and self.choosable:
             self.fill_percent = min(self.fill_percent + 0.1, 1)
-            play_sound(audioFile)
+            play_sound(audioFile)'''
 
     def draw(self, context, timestamp):
         context.select_font_face('Noto Sans', cairo.FONT_SLANT_ITALIC, cairo.FONT_WEIGHT_BOLD)
@@ -132,38 +135,72 @@ class ChoiceBox:
         context.set_source_rgba(*self.color)
         context.fill()
 
-class ChoicesDialog:
+class ChoiceDialog:
 
-    def __init__(self, texts):
-        self.boxes = []
+    def __init__(self, choice):
+        self.choice = choice
+        self.boxes = {}
+
+        # get longest text
+        texts = [option.text for (key, option) in choice.options.items()]
+        texts.insert(0, choice.prompt)
         longest_text = max(texts, key=len)
+
         x = 910
         y = 610
         dy = 100
         dx = 0
         #print("LONGEST: {}".format(longest_text))
-        for i, text in enumerate(texts):
-            self.boxes.append(ChoiceBox(text, cairo.SolidPattern(0.5, 0.5, 0.5, 0.5), [0, 0, 0, 1], x, y, longest_text, 1920, 1080, i!=0))
+
+        self.boxes['prompt'] = ChoiceBox(choice.prompt, cairo.SolidPattern(0.5, 0.5, 0.5, 1), [0, 0, 0, 1], x, y, longest_text, 1920, 1080)
+        for name, option in choice.options.items():
             y += dy
             x += dx
+            self.boxes[name] = ChoiceBox(option.text, cairo.SolidPattern(0.5, 0.5, 0.5, 1), [0, 0, 0, 1], x, y, longest_text, 1920, 1080)
 
     def draw(self, context, timestamp):
-        for box in self.boxes:
+        for name, box in self.boxes.items():
             box.draw(context, timestamp)
 
     def update(self):
-        for box in self.boxes:
+        total_votes = 0
+        for name, box in self.boxes.items():
+            if name in self.choice.options:
+                total_votes += self.choice.options[name].votes
+        for name, box in self.boxes.items():
+            if name in self.choice.options:
+                fill_percent = self.choice.options[name].votes / total_votes \
+                        if total_votes != 0 else 0.0
+                box.fill_percent = fill_percent
             box.update()
 
+STATE_IDLE = 0
+STATE_CHOICE = 1
+STATE_JUMP = 2
+
+# indices of state_funcs
+CB_ON_ENTER = 0
+CB_RUN = 1
+CB_ON_EXIT = 2
 
 class Player:
  
     def __init__(self, world):
         # member initialization
         self.world = world
-        #self.choices = ChoicesDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
-        self.active_choices = None
+        #self.choices = ChoiceDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
+        self.active_dialog = None
         self.fullscreen = False
+
+
+        #state machine stuff
+        self.state = STATE_IDLE
+        self.state_funcs = {
+            STATE_IDLE: [self.enter_idle_cb, self.idle_cb, None],
+            STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
+            STATE_JUMP: [self.enter_jump_cb, None, None]
+        }
+        self.set_label(self.world.current_label, 0)
 
         #GES stuff
         self.timeline = GES.Timeline.new_audio_video()
@@ -177,11 +214,11 @@ class Player:
 
         # GES bins
         sinkbin = Gst.Bin.new("sinkbin")
-        ghostpad = Gst.GhostPad.new("sink", pad)
-        sinkbin.add_pad(ghostpad)
         convert1 = Gst.ElementFactory.make("videoconvert")
         sinkbin.add(convert1)
         pad = convert1.get_static_pad("sink")
+        ghostpad = Gst.GhostPad.new("sink", pad)
+        sinkbin.add_pad(ghostpad)
         cairooverlay = Gst.ElementFactory.make("cairooverlay")
         sinkbin.add(cairooverlay)
         cairooverlay.connect('draw', self.on_draw)
@@ -212,6 +249,69 @@ class Player:
         xid = self.window.get_window().get_xid()
         videosink.set_window_handle (xid)
 
+    def update(self, timestamp):
+        cur_callbacks = self.state_funcs[self.state]
+        if cur_callbacks[CB_RUN] != None:
+            cur_callbacks[CB_RUN](timestamp)
+
+    def set_state(self, new_state, timestamp):
+        exit_cb = self.state_funcs[self.state][CB_ON_EXIT]
+        enter_cb = self.state_funcs[new_state][CB_ON_ENTER]
+        if exit_cb:
+            exit_cb(timestamp)
+        if enter_cb:
+            enter_cb(timestamp)
+        self.state = new_state
+
+    def jump_label(self, new_label, timestamp):
+        set_label(self, new_label, timestamp)
+
+    def set_label(self, new_label, timestamp):
+        label_json = self.world.data['labels'][new_label]
+        self.curr_label = Label(new_label, label_json)
+        if self.curr_label.jump != None:
+            print("Setting state to JUMP")
+            self.set_state(STATE_JUMP, timestamp)
+        elif self.curr_label.choice != None:
+            print("Setting state to CHOICE")
+            self.set_state(STATE_CHOICE, timestamp)
+        else:
+            print("Setting state to IDLE")
+            self.set_state(STATE_IDLE, timestamp)
+
+    def enter_idle_cb(self, timestamp):
+        if self.curr_label.next != '':
+            self.next_label_time = self.world.data['labels'][self.curr_label.next]['time']
+        else:
+            self.next_label_time = -1
+
+    def idle_cb(self, timestamp):
+        if self.next_label_time != -1 and timestamp > self.next_label_time * 1e9:
+            print("Setting label to {}".format(self.curr_label.next))
+            self.set_label(self.curr_label.next, timestamp)
+
+    def enter_choice_cb(self, timestamp):
+        self.active_dialog = ChoiceDialog(self.curr_label.choice)
+        self.next_label_time = timestamp / 1e9 + self.curr_label.choice.duration
+
+    def leave_choice_cb(self, timestamp):
+        self.active_dialog = None
+
+    def choice_cb(self, timestamp):
+        if timestamp > self.next_label_time * 1e9:
+            chosen_option_name = None
+            max_num_votes = 0
+            for name, option in self.curr_label.choice.options.items():
+                if option.votes > max_num_votes:
+                    chosen_option_name = name
+                    max_num_votes = option.votes
+            jump = self.curr_label.choice.options[chosen_option_name].jump
+            print("Setting label to {}".format(jump))
+            self.jump_label(jump, timestamp)
+
+
+    def enter_jump_cb(self, timestamp):
+        pass
  
     def openFile(self, fileName):
         self.asset = GES.UriClipAsset.request_sync(videoFile)
@@ -261,13 +361,17 @@ class Player:
 
     def on_draw(self, _overlay, context, timestamp, _duration):
         (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
-        print("{} / {}".format(timestamp/1e9, duration/1e9))
-        self.world.update(self, timestamp)
-        if self.active_choices != None:
-            self.active_choices.draw(context, timestamp)
-            self.active_choices.update()
-        elif (duration - timestamp)/1e9 <= 25:
-            self.active_choices = self.choices
+        #print("{} / {}".format(timestamp/1e9, duration/1e9))
+        self.update(timestamp)
+        if self.active_dialog != None:
+            self.active_dialog.draw(context, timestamp)
+            self.active_dialog.update()
+            if random.randint(1,100) == 1:
+                self.active_dialog.choice.options['upstairs'].votes += 1
+                play_sound(audioFile)
+            if random.randint(1,100) == 1:
+                self.active_dialog.choice.options['downstairs'].votes += 1
+                play_sound(audioFile)
 
     def on_q_pressed(self, *args):
         self.quit()
