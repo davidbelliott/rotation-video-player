@@ -6,22 +6,61 @@
             "next": "upstairs_downstairs_choice"
         },
         "upstairs_downstairs_choice": {
-            "time": 1,
+            "time": 48,
             "choice": {
-                "prompt": "Where do you go?",
+                "prompt": "Where do you go next?",
                 "options": {
                     "upstairs": {"text": "Go upstairs", "jump": "upstairs"},
                     "downstairs": {"text": "Stay downstairs", "jump": "downstairs"}
                 },
-                "duration": 10
+                "duration": 25,
+                "fill": [0.5, 0.5, 0.5, 0.5],
+                "stroke": [0, 0, 0, 1],
+                "x": 910,
+                "y": 610
             }
         },
         "upstairs": {
-            "time": 60,
-            "next": ""
+            "time": 73,
+            "next": "amulet_choice"
         },
         "downstairs": {
-            "time": 120,
+            "time": 208,
+            "next": ""
+        },
+        "amulet_choice": {
+            "time": 130,
+            "choice": {
+                "prompt": "How do you respond?",
+                "options": {
+                    "no_amulet_help": {"text": "\"Who cares about some old magickal amulet?\"", "jump": "no_amulet_help"},
+                    "amulet_help": {"text": "\"Oh no! Not the amulet!\"", "jump": "amulet_help"}
+                },
+                "duration": 22,
+                "fill": [0, 0, 0, 1],
+                "stroke": [1, 1, 1, 1],
+                "x": 710,
+                "y": 510
+            }
+        },
+        "no_amulet_help": {
+            "time": 152,
+            "next": "no_amulet_help_respawn"
+        },
+        "no_amulet_help_respawn": {
+            "time": 186,
+            "jump": "amulet_help"
+        },
+        "amulet_help": {
+            "time": 186,
+            "next": "amulet_help_jump"
+        },
+        "amulet_help_jump": {
+            "time": 197,
+            "jump": "boba"
+        },
+        "boba": {
+            "time": 259,
             "next": ""
         }
     }

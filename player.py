@@ -10,9 +10,11 @@ import os, sys
 import argparse
 import json
 import time
+import threading
 import pygame
 from collections import OrderedDict
 from enum import Enum
+from multiprocessing.connection import Listener
 
 
 import random
@@ -43,11 +45,16 @@ class Option:
         self.jump = json_data['jump']
         self.votes = 0
 
+
 class Choice:
     def __init__(self, json_data):
         self.prompt = json_data['prompt']
         self.options = {key: Option(value) for (key, value) in json_data['options'].items()}
         self.duration = json_data['duration']
+        self.fill = json_data['fill']
+        self.stroke = json_data['stroke']
+        self.x = json_data['x']
+        self.y = json_data['y']
 
 
 class Label:
@@ -71,15 +78,12 @@ class World:
         self.current_label_index = list(self.data["labels"].keys()) \
                 .index(self.current_label)
 
-    def update(self, player, timestamp):
-        return
-
 
 MAX_SPEED = 0.5
 DAMPING = 0.1
 class ChoiceBox:
     
-    def __init__(self, text, pattern, color, x, y, reftext='', display_x=None, display_y=None, choosable=False):
+    def __init__(self, text, pattern, color, x, y, border=True, reftext='', display_x=None, display_y=None, choosable=False):
         self.text = text
         self.pattern = pattern
         self.color = color
@@ -87,6 +91,7 @@ class ChoiceBox:
         self.display_x = x if display_x == None else display_x
         self.y = y
         self.display_y = y if display_y == None else display_y
+        self.border = border
         self.reftext = reftext
         display_x_offset = self.display_x - self.x
         display_y_offset = self.display_y - self.y
@@ -120,14 +125,15 @@ class ChoiceBox:
         context.set_source(self.pattern)
         context.fill()
 
-        context.rectangle(self.display_x, self.display_y, extents.width + 2 * margin, extents.height + 2 * margin)
 
-        dashes = [30.0, 10.0]
         context.set_source_rgba(*self.color)
-        context.set_line_width(5)
-        context.set_dash(dashes, timestamp / 1E7)
-        context.set_line_join(cairo.LINE_JOIN_BEVEL)
-        context.stroke()
+        if self.border:
+            context.rectangle(self.display_x, self.display_y, extents.width + 2 * margin, extents.height + 2 * margin)
+            dashes = [30.0, 10.0]
+            context.set_line_width(5)
+            context.set_dash(dashes, timestamp / 1E7)
+            context.set_line_join(cairo.LINE_JOIN_BEVEL)
+            context.stroke()
 
         context.move_to(self.display_x + margin, self.display_y + extents.height + margin)
         context.text_path(self.text)
@@ -146,17 +152,19 @@ class ChoiceDialog:
         texts.insert(0, choice.prompt)
         longest_text = max(texts, key=len)
 
-        x = 910
-        y = 610
+        x = choice.x
+        y = choice.y
         dy = 100
         dx = 0
+        fill = cairo.SolidPattern(*choice.fill)
+        stroke = choice.stroke
         #print("LONGEST: {}".format(longest_text))
 
-        self.boxes['prompt'] = ChoiceBox(choice.prompt, cairo.SolidPattern(0.5, 0.5, 0.5, 1), [0, 0, 0, 1], x, y, longest_text, 1920, 1080)
+        self.boxes['prompt'] = ChoiceBox(choice.prompt, fill, stroke, x, y, False, longest_text, 1920, 1080)
         for name, option in choice.options.items():
             y += dy
             x += dx
-            self.boxes[name] = ChoiceBox(option.text, cairo.SolidPattern(0.5, 0.5, 0.5, 1), [0, 0, 0, 1], x, y, longest_text, 1920, 1080)
+            self.boxes[name] = ChoiceBox(option.text, fill, stroke, x, y, True, longest_text, 1920, 1080)
 
     def draw(self, context, timestamp):
         for name, box in self.boxes.items():
@@ -183,6 +191,11 @@ CB_ON_ENTER = 0
 CB_RUN = 1
 CB_ON_EXIT = 2
 
+
+LISTEN_ADDRESS = ('localhost', 6000)
+AUTHKEY = b'overthrow'
+
+
 class Player:
  
     def __init__(self, world):
@@ -192,25 +205,15 @@ class Player:
         self.active_dialog = None
         self.fullscreen = False
 
-
-        #state machine stuff
-        self.state = STATE_IDLE
-        self.state_funcs = {
-            STATE_IDLE: [self.enter_idle_cb, self.idle_cb, None],
-            STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
-            STATE_JUMP: [self.enter_jump_cb, None, None]
-        }
-        self.set_label(self.world.current_label, 0)
-
         #GES stuff
-        self.timeline = GES.Timeline.new_audio_video()
+        '''self.timeline = GES.Timeline.new_audio_video()
         self.layer = GES.Layer()
         self.timeline.add_layer(self.layer)
         self.openFile(videoFile)
 
         self.pipeline = GES.Pipeline()
         self.pipeline.set_timeline(self.timeline)
-        self.pipeline.set_state(Gst.State.PLAYING)
+        self.pipeline.set_state(Gst.State.PAUSED)
 
         # GES bins
         sinkbin = Gst.Bin.new("sinkbin")
@@ -242,76 +245,116 @@ class Player:
 
         self.window.connect("delete-event", self.window_closed)
 
+        #TODO: uncomment these
         self.window.show_all()
         self.window.realize()
-        #window.fullscreen()
-
         xid = self.window.get_window().get_xid()
-        videosink.set_window_handle (xid)
+        videosink.set_window_handle (xid)'''
 
-    def update(self, timestamp):
+
+
+        #state machine stuff
+        self.state = STATE_IDLE
+        self.state_funcs = {
+            STATE_IDLE: [self.enter_idle_cb, self.idle_cb, None],
+            STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
+            STATE_JUMP: [self.enter_jump_cb, None, None]
+        }
+        self.next_label_time = -1 #TODO: better solution
+
+
+        time.sleep(1)
+        self.jump_label(self.world.current_label)
+        #TODO: uncomment
+        #self.pipeline.set_state(Gst.State.PLAYING)
+
+
+
+    def update(self):
         cur_callbacks = self.state_funcs[self.state]
         if cur_callbacks[CB_RUN] != None:
-            cur_callbacks[CB_RUN](timestamp)
+            cur_callbacks[CB_RUN]()
 
-    def set_state(self, new_state, timestamp):
+    def set_state(self, new_state):
+        print("Changed state to {}".format(new_state))
         exit_cb = self.state_funcs[self.state][CB_ON_EXIT]
         enter_cb = self.state_funcs[new_state][CB_ON_ENTER]
-        if exit_cb:
-            exit_cb(timestamp)
-        if enter_cb:
-            enter_cb(timestamp)
         self.state = new_state
+        if exit_cb:
+            exit_cb()
+        if enter_cb:
+            enter_cb()
+        print("Done changing state to {}".format(new_state))
 
-    def jump_label(self, new_label, timestamp):
-        set_label(self, new_label, timestamp)
+    def jump_label(self, new_label):
+        lbl = Label(new_label, self.world.data['labels'][new_label])
+        self.seek(lbl.time * 1e9)
+        self.set_label(new_label)
 
-    def set_label(self, new_label, timestamp):
+    def set_label(self, new_label):
         label_json = self.world.data['labels'][new_label]
         self.curr_label = Label(new_label, label_json)
+        print("Set label to {}".format(new_label))
         if self.curr_label.jump != None:
             print("Setting state to JUMP")
-            self.set_state(STATE_JUMP, timestamp)
+            self.set_state(STATE_JUMP)
         elif self.curr_label.choice != None:
             print("Setting state to CHOICE")
-            self.set_state(STATE_CHOICE, timestamp)
+            self.set_state(STATE_CHOICE)
         else:
             print("Setting state to IDLE")
-            self.set_state(STATE_IDLE, timestamp)
+            self.set_state(STATE_IDLE)
 
-    def enter_idle_cb(self, timestamp):
+    def enter_idle_cb(self):
         if self.curr_label.next != '':
             self.next_label_time = self.world.data['labels'][self.curr_label.next]['time']
         else:
             self.next_label_time = -1
 
-    def idle_cb(self, timestamp):
+    def idle_cb(self):
+        '''timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
         if self.next_label_time != -1 and timestamp > self.next_label_time * 1e9:
-            print("Setting label to {}".format(self.curr_label.next))
-            self.set_label(self.curr_label.next, timestamp)
+            print("IDLE Setting label to {}".format(self.curr_label.next))
+            self.set_label(self.curr_label.next)'''
 
-    def enter_choice_cb(self, timestamp):
+    def enter_choice_cb(self):
+        timestamp = self.curr_label.time
         self.active_dialog = ChoiceDialog(self.curr_label.choice)
-        self.next_label_time = timestamp / 1e9 + self.curr_label.choice.duration
+        self.next_label_time = timestamp + self.curr_label.choice.duration
+        print("timestamp: {}".format(timestamp))
+        print("next label time: {}".format(self.next_label_time))
 
-    def leave_choice_cb(self, timestamp):
+    def leave_choice_cb(self):
         self.active_dialog = None
 
-    def choice_cb(self, timestamp):
-        if timestamp > self.next_label_time * 1e9:
-            chosen_option_name = None
-            max_num_votes = 0
-            for name, option in self.curr_label.choice.options.items():
-                if option.votes > max_num_votes:
-                    chosen_option_name = name
-                    max_num_votes = option.votes
-            jump = self.curr_label.choice.options[chosen_option_name].jump
-            print("Setting label to {}".format(jump))
-            self.jump_label(jump, timestamp)
+    def choice_cb(self):
+        if self.curr_label.choice:
+            timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
+            print("timestamp: {}".format(timestamp))
+            print("next label time: {}".format(self.next_label_time))
+            if timestamp > self.next_label_time * 1e9:
+                chosen_option_name = None
+                max_num_votes = -1
+                for name, option in self.curr_label.choice.options.items():
+                    if option.votes > max_num_votes:
+                        chosen_option_name = name
+                        max_num_votes = option.votes
+                jump = self.curr_label.choice.options[chosen_option_name].jump
+                print("CHOICE Setting label to {}".format(jump))
+                self.jump_label(jump)
 
 
-    def enter_jump_cb(self, timestamp):
-        pass
+    def enter_jump_cb(self):
+        jump_label_name = self.curr_label.jump
+        self.jump_label(jump_label_name)
+
+    def vote_cb(self, option):
+        print("Vote callback")
+        if self.active_dialog and type(self.active_dialog) == ChoiceDialog:
+            if option in self.active_dialog.choice.options:
+                self.active_dialog.choice.options[option].votes += 1
+                play_sound(audioFile)
+
  
     def openFile(self, fileName):
         self.asset = GES.UriClipAsset.request_sync(videoFile)
@@ -342,6 +385,16 @@ class Player:
         else:
             self.play()'''
 
+
+    def seek(self, location):
+        """
+        @param location: time to seek to, in nanoseconds
+        """
+        print("seeking to %r" % location)
+
+        #TODO: uncomment
+        #self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, location)
+
     def mediaStatusChanged(self, status):
         pass
         '''print("Status: {}".format(status))
@@ -362,16 +415,10 @@ class Player:
     def on_draw(self, _overlay, context, timestamp, _duration):
         (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
         #print("{} / {}".format(timestamp/1e9, duration/1e9))
-        self.update(timestamp)
+        self.update()
         if self.active_dialog != None:
             self.active_dialog.draw(context, timestamp)
             self.active_dialog.update()
-            if random.randint(1,100) == 1:
-                self.active_dialog.choice.options['upstairs'].votes += 1
-                play_sound(audioFile)
-            if random.randint(1,100) == 1:
-                self.active_dialog.choice.options['downstairs'].votes += 1
-                play_sound(audioFile)
 
     def on_q_pressed(self, *args):
         self.quit()
@@ -395,20 +442,41 @@ class Player:
     def error(self, error):
         print("Error: {}".format(error))
 
+
+def listen(player):
+    listener = Listener(LISTEN_ADDRESS, authkey=AUTHKEY)
+    conn = listener.accept()
+    print("Connection accepted from {}".format(listener.last_accepted))
+    while True:
+        msg = conn.recv()
+        if msg == 'close':
+            conn.close()
+            break
+        player.vote_cb(msg)
+    listener.close()
+
  
 if __name__ == '__main__':
+    # Call library init functions
     Gst.init(None)
     GES.init()
     GObject.threads_init()
     Gst.init(None)
     pygame.init()
-    pygame.mixer.init()
+    #pygame.mixer.init() #TODO: uncomment this
+
+    # Parse arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('filename')
     args = parser.parse_args()
 
+    # Initialize objects
     world = World(args.filename)
     player = Player(world)
 
+    # Start listener thread
+    thread = threading.Thread(target=listen, args=[player]);
+    thread.start()
 
+    # Run main loop
     GLib.MainLoop().run()
