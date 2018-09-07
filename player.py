@@ -25,16 +25,16 @@ mainLoop = GLib.MainLoop.new(None, False)
 
 _sound_library = {}
 def play_sound(path):
-    global _sound_library
+    '''global _sound_library
     sound = _sound_library.get(path)
     if sound == None:
         canonicalized_path = path.replace('/', os.sep).replace('\\', os.sep)
         sound = pygame.mixer.Sound(canonicalized_path)
         _sound_library[path] = sound
-    sound.play()
+    sound.play()'''
 
-videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/canyon.mp4"
-audioFile = "/home/david/gdrive/avery_house/rotation_video/player/videos/ding.wav"
+videoFile = "file:///home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/main.mp4"
+audioFile = "/home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/ding.wav"
 
 
 class Option:
@@ -46,6 +46,7 @@ class Option:
 
 class Choice:
     def __init__(self, json_data):
+        self.json_data = json_data
         self.prompt = json_data['prompt']
         self.options = {key: Option(value) for (key, value) in json_data['options'].items()}
         self.duration = json_data['duration']
@@ -196,9 +197,10 @@ AUTHKEY = b'overthrow'
 
 class Player:
  
-    def __init__(self, world):
+    def __init__(self, world, socketIO):
         # member initialization
         self.world = world
+        self.socketIO = socketIO
         #self.choices = ChoiceDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
         self.active_dialog = None
         self.fullscreen = False
@@ -257,11 +259,11 @@ class Player:
             STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
             STATE_JUMP: [self.enter_jump_cb, None, None]
         }
-        #self.next_label_time = -1 #TODO: better solution
+        self.next_label_time = -1 #TODO: better solution
 
 
-        #time.sleep(1)
-        #self.jump_label(self.world.current_label)
+        time.sleep(1)
+        self.jump_label(self.world.current_label)
         self.pipeline.set_state(Gst.State.PLAYING)
 
 
@@ -283,11 +285,13 @@ class Player:
         print("Done changing state to {}".format(new_state))
 
     def jump_label(self, new_label):
+        print("Jumping to label")
         lbl = Label(new_label, self.world.data['labels'][new_label])
         self.seek(lbl.time * 1e9)
         self.set_label(new_label)
 
     def set_label(self, new_label):
+        print("Setting label")
         label_json = self.world.data['labels'][new_label]
         self.curr_label = Label(new_label, label_json)
         print("Set label to {}".format(new_label))
@@ -308,17 +312,18 @@ class Player:
             self.next_label_time = -1
 
     def idle_cb(self):
-        '''timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
-        if self.next_label_time != -1 and timestamp > self.next_label_time * 1e9:
+        timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
+        if self.next_label_time > 0 and timestamp > self.next_label_time * 1e9:
             print("IDLE Setting label to {}".format(self.curr_label.next))
-            self.set_label(self.curr_label.next)'''
+            self.set_label(self.curr_label.next)
 
     def enter_choice_cb(self):
         timestamp = self.curr_label.time
         self.active_dialog = ChoiceDialog(self.curr_label.choice)
         self.next_label_time = timestamp + self.curr_label.choice.duration
-        print("timestamp: {}".format(timestamp))
-        print("next label time: {}".format(self.next_label_time))
+        self.socketIO.emit("show_choice", self.curr_label.choice.json_data)
+        #print("timestamp: {}".format(timestamp))
+        #print("next label time: {}".format(self.next_label_time))
 
     def leave_choice_cb(self):
         self.active_dialog = None
@@ -326,8 +331,8 @@ class Player:
     def choice_cb(self):
         if self.curr_label.choice:
             timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
-            print("timestamp: {}".format(timestamp))
-            print("next label time: {}".format(self.next_label_time))
+            #print("timestamp: {}".format(timestamp))
+            #print("next label time: {}".format(self.next_label_time))
             if timestamp > self.next_label_time * 1e9:
                 chosen_option_name = None
                 max_num_votes = -1
@@ -353,13 +358,11 @@ class Player:
 
  
     def openFile(self, fileName):
+        print(videoFile)
         self.asset = GES.UriClipAsset.request_sync(videoFile)
         self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
         self.timeline.commit()
-        '''if fileName != '':
-            self.mediaPlayer.setMedia(
-                    QMediaContent(QUrl.fromLocalFile(fileName)))
-            self.fitInView(self.videoItem.boundingRect(), Qt.KeepAspectRatio)'''
+
  
     def exitCall(self):
         print("Exit")
@@ -376,40 +379,14 @@ class Player:
 
     def play_pause_toggle(self):
         pass
-        '''if self.mediaPlayer.state() == QMediaPlayer.PlayingState:
-            self.pause()
-        else:
-            self.play()'''
-
 
     def seek(self, location):
-        """
-        @param location: time to seek to, in nanoseconds
-        """
         print("seeking to %r" % location)
-
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, location)
-
-    def mediaStatusChanged(self, status):
-        pass
-        '''print("Status: {}".format(status))
-        if status == QMediaPlayer.EndOfMedia:
-            if self.world.next_room():
-                choice = self.world.get_choice()
-                if choice:
-                    print(choice)
-                video = self.world.get_video()
-                if video:
-                    print("Opening {}".format(video))
-                    self.openFile(video)
-                    self.play()
-            else:
-                sys.exit(app.exec_())'''
 
 
     def on_draw(self, _overlay, context, timestamp, _duration):
         (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
-        #print("{} / {}".format(timestamp/1e9, duration/1e9))
         self.update()
         if self.active_dialog != None:
             self.active_dialog.draw(context, timestamp)
@@ -455,10 +432,9 @@ class SocketIOListener:
     def on_cast_vote(self, data):
         self.player.vote_cb(data)
 
-def listen_to_server(player):
+def listen_to_server(player, socketIO):
     try:
         listener = SocketIOListener(player)
-        socketIO = SocketIO(SERVER_URL, SERVER_PORT, LoggingNamespace)
         socketIO.on('connect', listener.on_connect)
         socketIO.on('disconnect', listener.on_disconnect)
         socketIO.on('reconnect', listener.on_reconnect)
@@ -467,6 +443,8 @@ def listen_to_server(player):
         socketIO.wait()
     except ConnectionError:
         print('Connection error')
+    except KeyboardInterrupt:
+        print('Keyboard interrupt')
 
 
 
@@ -477,8 +455,8 @@ if __name__ == '__main__':
     GES.init()
     GObject.threads_init()
     Gst.init(None)
-    pygame.init()
-    pygame.mixer.init()
+    #pygame.init()
+    #pygame.mixer.init()
 
     # Parse arguments
     parser = argparse.ArgumentParser()
@@ -487,11 +465,12 @@ if __name__ == '__main__':
 
     # Initialize objects
     world = World(args.filename)
-    player = Player(world)
+    socketIO = SocketIO(SERVER_URL, SERVER_PORT, LoggingNamespace)
+    player = Player(world, socketIO)
 
     # Start listener thread
-    #thread = threading.Thread(target=listen_to_server, args=[player]);
-    #thread.start()
+    thread = threading.Thread(target=listen_to_server, args=[player, socketIO], daemon=True);
+    thread.start()
 
     # Run main loop
     GLib.MainLoop().run()
