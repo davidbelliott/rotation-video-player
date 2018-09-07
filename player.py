@@ -1,11 +1,5 @@
-# PyQt5 Video player
 #!/usr/bin/env python
  
-from PyQt5.QtCore import *
-from PyQt5.QtMultimedia import *
-from PyQt5.QtMultimediaWidgets import *
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
 import os, sys
 import argparse
 import json
@@ -14,8 +8,7 @@ import threading
 import pygame
 from collections import OrderedDict
 from enum import Enum
-from multiprocessing.connection import Listener
-
+from socketIO_client import SocketIO, LoggingNamespace
 
 import random
 import cairo
@@ -23,6 +16,11 @@ import gi
 gi.require_version('Gst', '1.0')
 gi.require_foreign('cairo')
 from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
+
+
+SERVER_URL = 'localhost'
+SERVER_PORT = 5000
+
 mainLoop = GLib.MainLoop.new(None, False)
 
 _sound_library = {}
@@ -35,7 +33,7 @@ def play_sound(path):
         _sound_library[path] = sound
     sound.play()
 
-videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/main.mp4"
+videoFile = "file:///home/david/gdrive/avery_house/rotation_video/player/videos/canyon.mp4"
 audioFile = "/home/david/gdrive/avery_house/rotation_video/player/videos/ding.wav"
 
 
@@ -206,7 +204,7 @@ class Player:
         self.fullscreen = False
 
         #GES stuff
-        '''self.timeline = GES.Timeline.new_audio_video()
+        self.timeline = GES.Timeline.new_audio_video()
         self.layer = GES.Layer()
         self.timeline.add_layer(self.layer)
         self.openFile(videoFile)
@@ -245,11 +243,10 @@ class Player:
 
         self.window.connect("delete-event", self.window_closed)
 
-        #TODO: uncomment these
         self.window.show_all()
         self.window.realize()
         xid = self.window.get_window().get_xid()
-        videosink.set_window_handle (xid)'''
+        videosink.set_window_handle (xid)
 
 
 
@@ -260,13 +257,12 @@ class Player:
             STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
             STATE_JUMP: [self.enter_jump_cb, None, None]
         }
-        self.next_label_time = -1 #TODO: better solution
+        #self.next_label_time = -1 #TODO: better solution
 
 
-        time.sleep(1)
-        self.jump_label(self.world.current_label)
-        #TODO: uncomment
-        #self.pipeline.set_state(Gst.State.PLAYING)
+        #time.sleep(1)
+        #self.jump_label(self.world.current_label)
+        self.pipeline.set_state(Gst.State.PLAYING)
 
 
 
@@ -349,7 +345,7 @@ class Player:
         self.jump_label(jump_label_name)
 
     def vote_cb(self, option):
-        print("Vote callback")
+        print("Vote callback: {}".format(option))
         if self.active_dialog and type(self.active_dialog) == ChoiceDialog:
             if option in self.active_dialog.choice.options:
                 self.active_dialog.choice.options[option].votes += 1
@@ -392,8 +388,7 @@ class Player:
         """
         print("seeking to %r" % location)
 
-        #TODO: uncomment
-        #self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, location)
+        self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, location)
 
     def mediaStatusChanged(self, status):
         pass
@@ -443,17 +438,37 @@ class Player:
         print("Error: {}".format(error))
 
 
-def listen(player):
-    listener = Listener(LISTEN_ADDRESS, authkey=AUTHKEY)
-    conn = listener.accept()
-    print("Connection accepted from {}".format(listener.last_accepted))
-    while True:
-        msg = conn.recv()
-        if msg == 'close':
-            conn.close()
-            break
-        player.vote_cb(msg)
-    listener.close()
+class SocketIOListener:
+
+    def __init__(self, player):
+        self.player = player
+
+    def on_connect(self):
+        print('connected')
+
+    def on_disconnect(self):
+        print('disconnected')
+
+    def on_reconnect(self):
+        print('reconnected')
+
+    def on_cast_vote(self, data):
+        self.player.vote_cb(data)
+
+def listen_to_server(player):
+    try:
+        listener = SocketIOListener(player)
+        socketIO = SocketIO(SERVER_URL, SERVER_PORT, LoggingNamespace)
+        socketIO.on('connect', listener.on_connect)
+        socketIO.on('disconnect', listener.on_disconnect)
+        socketIO.on('reconnect', listener.on_reconnect)
+        socketIO.on('cast_vote', listener.on_cast_vote)
+        socketIO.emit('join', {'is_movie_player': True})
+        socketIO.wait()
+    except ConnectionError:
+        print('Connection error')
+
+
 
  
 if __name__ == '__main__':
@@ -463,7 +478,7 @@ if __name__ == '__main__':
     GObject.threads_init()
     Gst.init(None)
     pygame.init()
-    #pygame.mixer.init() #TODO: uncomment this
+    pygame.mixer.init()
 
     # Parse arguments
     parser = argparse.ArgumentParser()
@@ -475,8 +490,8 @@ if __name__ == '__main__':
     player = Player(world)
 
     # Start listener thread
-    thread = threading.Thread(target=listen, args=[player]);
-    thread.start()
+    #thread = threading.Thread(target=listen_to_server, args=[player]);
+    #thread.start()
 
     # Run main loop
     GLib.MainLoop().run()
