@@ -2,102 +2,47 @@
     "starting_label": "avery_tour_start",
     "labels": {
         "avery_tour_start": {
-            "time": 0,
-            "next": "upstairs_downstairs_choice"
+            "time": 120,
+            "flowto": "upstairs_downstairs_choice"
         },
         "upstairs_downstairs_choice": {
-            "time": 48,
-            "sportsball_game": {
-                "players": {
-                    "Noelle": {
-                        "abilities": {
-                            "Kick ball": "noelle_kick_ball",
-                            "Head ball": "noelle_head_ball",
-                            "Jump": "noelle_jump",
-                            "Duck": "noelle_duck",
-                            "Dodge": "noelle_dodge"
-                        }
-                    },
-                    "Nora": {
-                        "abilities": {
-                            "Throw balls": "nora_throw_balls",
-                            "Discus": "nora_discus",
-                            "Bowl them away": "nora_bowl"
-                        }
-                    },
-                    "Tiger": {
-                        "abilities": {
-                            "Rocket sprint": "tiger_sprint",
-                            "Speedwalk": "tiger_speedwalk",
-                            "Hurdles": "tiger_hurdles"
-                        }
-                    },
-                    "Adrian": {
-                        "abilities": {
-                            "Pincer attack": "adrian_pincer",
-                            "Bunt": "adrian_bunt",
-                            "Bat of peace": "adrian_bat",
-                            "Hole in one": "adrian_hole_in_one"
-                        }
-                    },
-                    "David": {
-                        "abilities": {
-                            "Headbutt": "david_headbutt",
-                            "Dribble": "david_dribble",
-                            "Touchdown": "david_touchdown"
-                        }
-                    },
-                    "Evan": {
-                        "abilities": {
-                            "Catch ball": "evan_catch_ball",
-                            "Catch frisbee": "evan_catch_frisbee",
-                            "Catch bat": "evan_catch_bat",
-                            "Pep talk": "evan_pep_talk"
-                        }
-                    }
-                },
-                "quarters": [
-                    {
-                        "name": "1st Quarter",
-                        "required_moves": "evan_pep_talk"
-                    },
-                    {
-                        "name": "2nd Quarter",
-                        "required_moves": "david_touchdown"
-                    }
-                ],
-                "lose_label": "avery_lose",
-                "win_label": "avery_win"
-            },
+            "time": 121,
 
             "choice": {
                 "prompt": "Where do you go next?",
                 "options": {
-                    "upstairs": {"text": "Go upstairs", "jump": "upstairs"},
-                    "downstairs": {"text": "Stay downstairs", "jump": "downstairs"}
+                    "upstairs": {"text": "Go sportsball", "jumpto": "sportsball_1st_quarter"},
+                    "downstairs": {"text": "Stay downstairs", "jumpto": "downstairs"}
                 },
-                "duration": 25,
+                "duration": 5,
                 "fill": [0.5, 0.5, 0.5, 0.5],
                 "stroke": [0, 0, 0, 1],
                 "x": 910,
                 "y": 610
             }
         },
+        "sportsball_1st_quarter": {
+            "time": 1149,
+            "sportsball_quarter": {
+                "duration": 20,
+                "required_move": "evan_pep_talk"
+            }
+        },
         "upstairs": {
             "time": 73,
-            "next": "amulet_choice"
+            "flowto": "amulet_choice"
         },
         "downstairs": {
             "time": 208,
-            "next": ""
+            "flowto": ""
         },
         "amulet_choice": {
             "time": 130,
             "choice": {
                 "prompt": "How do you respond?",
                 "options": {
-                    "no_amulet_help": {"text": "\"Who cares about some old magickal amulet?\"", "jump": "no_amulet_help"},
-                    "amulet_help": {"text": "\"Oh no! Not the amulet!\"", "jump": "amulet_help"}
+                    "no_amulet_help": {"text": "\"Who cares about some old magickal amulet?\"", "jumpto": "no_amulet_help"},
+                    "amulet_help": {"text": "\"Oh no! Not the amulet!\"", "jumpto": "amulet_help"}
                 },
                 "duration": 22,
                 "fill": [0, 0, 0, 1],
@@ -108,23 +53,106 @@
         },
         "no_amulet_help": {
             "time": 152,
-            "next": "no_amulet_help_respawn"
+            "flowto": "no_amulet_help_respawn"
         },
         "no_amulet_help_respawn": {
             "time": 186,
-            "jump": "amulet_help"
+            "jumpto": "amulet_help"
         },
         "amulet_help": {
             "time": 186,
-            "next": "amulet_help_jump"
+            "flowto": "amulet_help_jump"
         },
         "amulet_help_jump": {
             "time": 197,
-            "jump": "boba"
+            "jumpto": "boba"
         },
         "boba": {
             "time": 259,
-            "next": ""
+            "flowto": ""
+        },
+        "tiger_sprint": {
+            "time": 1160,
+            "flowto": "tiger_sprint_end"
+        },
+        "tiger_sprint_end": {
+            "time": 1162,
+            "jumpto": "queued"
+        },
+        "tiger_hurdles": {
+            "time": 1162,
+            "flowto": "tiger_hurdles_end"
+        },
+        "tiger_hurdles_end": {
+            "time": 1164,
+            "jumpto": "queued"
+        },
+        "tiger_speedwalk": {
+            "time": 1164,
+            "flowto": "tiger_speedwalk_end"
+        },
+        "tiger_speedwalk_end": {
+            "time": 1167,
+            "jumpto": "queued"
+        },
+        "nora_throw_balls": {
+            "time": 1168,
+            "flowto": "nora_throw_balls_end"
+        },
+        "nora_throw_balls_end": {
+            "time": 1171,
+            "jumpto": "queued"
         }
+    },
+    "sportsball": {
+        "players": {
+            "Noelle": {
+                "abilities": {
+                    "Kick ball": "noelle_kick_ball",
+                    "Head ball": "noelle_head_ball",
+                    "Jump": "noelle_jump",
+                    "Duck": "noelle_duck",
+                    "Dodge": "noelle_dodge"
+                }
+            },
+            "Nora": {
+                "abilities": {
+                    "Throw balls": "nora_throw_balls",
+                    "Discus": "nora_discus",
+                    "Bowl them away": "nora_bowl"
+                }
+            },
+            "Tiger": {
+                "abilities": {
+                    "Rocket sprint": "tiger_sprint",
+                    "Speedwalk": "tiger_speedwalk",
+                    "Hurdles": "tiger_hurdles"
+                }
+            },
+            "Adrian": {
+                "abilities": {
+                    "Bunt": "adrian_bunt",
+                    "Bat of peace": "adrian_bat",
+                    "Hole in one": "adrian_hole_in_one"
+                }
+            },
+            "Evan": {
+                "abilities": {
+                    "Catch ball": "evan_catch_ball",
+                    "Catch frisbee": "evan_catch_frisbee",
+                    "Catch bat": "evan_catch_bat",
+                    "Pep talk": "evan_pep_talk"
+                }
+            },
+            "David": {
+                "abilities": {
+                    "Headbutt": "david_headbutt",
+                    "Dribble": "david_dribble",
+                    "Touchdown": "david_touchdown"
+                }
+            }
+        },
+        "lose_label": "avery_lose",
+        "win_label": "avery_win"
     }
 }

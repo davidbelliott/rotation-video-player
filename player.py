@@ -9,6 +9,7 @@ import pygame
 from collections import OrderedDict
 from enum import Enum
 from socketIO_client import SocketIO, LoggingNamespace
+from queue import Queue
 
 import random
 import cairo
@@ -38,31 +39,74 @@ audioFile = "/home/david/gdrive/avery_house/rotation_video/rotation-video-player
 
 
 class Option:
-    def __init__(self, json_data):
-        self.text = json_data['text']
-        self.jump = json_data['jump']
+    @classmethod
+    def from_json(cls, json_data):
+        return cls(json_data['text'], json_data['jumpto'])
+
+    def __init__(self, text, jumpto):
+        self.text = text
+        self.jumpto = jumpto
         self.votes = 0
 
 
 class Choice:
-    def __init__(self, json_data):
-        self.json_data = json_data
-        self.prompt = json_data['prompt']
-        self.options = {key: Option(value) for (key, value) in json_data['options'].items()}
-        self.duration = json_data['duration']
-        self.fill = json_data['fill']
-        self.stroke = json_data['stroke']
-        self.x = json_data['x']
-        self.y = json_data['y']
+    @classmethod
+    def from_json(cls, json_data):
+        prompt = json_data['prompt']
+        options = {key: Option.from_json(value) for (key, value) in json_data['options'].items()}
+        duration = json_data['duration']
+        fill = json_data['fill']
+        stroke = json_data['stroke']
+        x = json_data['x']
+        y = json_data['y']
+        return cls(prompt, options, duration, fill, stroke, x, y)
+
+
+    def __init__(self, prompt, options, duration=20, fill=[1, 1, 1, 1], stroke=[1, 1, 1, 1], x=700, y=500, room=None):
+        self.prompt = prompt
+        self.options = options
+        self.duration = duration
+        self.fill = fill
+        self.stroke = stroke
+        self.x = x
+        self.y = y
+        self.room = room
+
+    def make_json_data(self):
+        self_data = {"prompt": self.prompt, "options": {name: option.text for name, option in self.options.items()}, "room": self.room}
+        print("SELF DATA: {}".format(self_data))
+        return self_data
 
 
 class Label:
     def __init__(self, name, json_data):
         self.name = name
         self.time = json_data['time']
-        self.next = json_data['next'] if 'next' in json_data else None
-        self.choice = Choice(json_data['choice']) if 'choice' in json_data else None
-        self.jump = json_data['jump'] if 'jump' in json_data else None
+        self.flowto = json_data['flowto'] if 'flowto' in json_data else None
+        self.choice = Choice.from_json(json_data['choice']) if 'choice' in json_data else None
+        self.jumpto = json_data['jumpto'] if 'jumpto' in json_data else None
+        self.sportsball_quarter = SportsballQuarter(json_data['sportsball_quarter']) if 'sportsball_quarter'in json_data else None
+
+
+class SportsballPlayer:
+    def __init__(self, name, json_data, room_index):
+        self.name = name
+        self.ability_choice = Choice(name, {value: Option(key, value) for (key, value) in json_data['abilities'].items()}, room=str(room_index))
+
+class SportsballGame:
+    def __init__(self, json_data):
+        room_index = 0
+        self.players = []
+        for (key, value) in json_data['players'].items():
+            self.players.append(SportsballPlayer(key, value, room_index))
+            room_index += 1
+        self.lose_label = json_data['lose_label']
+        self.win_label = json_data['win_label']
+
+class SportsballQuarter:
+    def __init__(self, json_data):
+        self.duration = json_data['duration']
+        self.required_move = json_data['required_move']
 
 
 class World:
@@ -76,6 +120,8 @@ class World:
         self.current_label = self.data["starting_label"]
         self.current_label_index = list(self.data["labels"].keys()) \
                 .index(self.current_label)
+
+        self.sportsball = SportsballGame(self.data["sportsball"])
 
 
 MAX_SPEED = 0.5
@@ -184,6 +230,7 @@ class ChoiceDialog:
 STATE_IDLE = 0
 STATE_CHOICE = 1
 STATE_JUMP = 2
+STATE_SPORTSBALL = 3
 
 # indices of state_funcs
 CB_ON_ENTER = 0
@@ -202,7 +249,8 @@ class Player:
         self.world = world
         self.socketIO = socketIO
         #self.choices = ChoiceDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
-        self.active_dialog = None
+        self.active_dialogs = []
+        self.label_queue = Queue()
         self.fullscreen = False
 
         #GES stuff
@@ -257,9 +305,10 @@ class Player:
         self.state_funcs = {
             STATE_IDLE: [self.enter_idle_cb, self.idle_cb, None],
             STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
-            STATE_JUMP: [self.enter_jump_cb, None, None]
+            STATE_JUMP: [self.enter_jump_cb, None, None],
+            STATE_SPORTSBALL: [self.enter_sportsball_cb, self.sportsball_cb, self.leave_sportsball_cb]
         }
-        self.next_label_time = -1 #TODO: better solution
+        self.end_label_time = -1 #TODO: better solution
 
 
         time.sleep(1)
@@ -284,8 +333,15 @@ class Player:
             enter_cb()
         print("Done changing state to {}".format(new_state))
 
+    def enqueue_label(self, new_label):
+        self.label_queue.put(new_label)
+
     def jump_label(self, new_label):
         print("Jumping to label")
+        if new_label == "queued":
+            if self.label_queue.empty():
+                return
+            new_label = self.label_queue.get_nowait()
         lbl = Label(new_label, self.world.data['labels'][new_label])
         self.seek(lbl.time * 1e9)
         self.set_label(new_label)
@@ -295,7 +351,10 @@ class Player:
         label_json = self.world.data['labels'][new_label]
         self.curr_label = Label(new_label, label_json)
         print("Set label to {}".format(new_label))
-        if self.curr_label.jump != None:
+        if self.curr_label.sportsball_quarter != None:
+            print("Setting state to SPORTSBALL")
+            self.set_state(STATE_SPORTSBALL)
+        elif self.curr_label.jumpto != None:
             print("Setting state to JUMP")
             self.set_state(STATE_JUMP)
         elif self.curr_label.choice != None:
@@ -306,55 +365,101 @@ class Player:
             self.set_state(STATE_IDLE)
 
     def enter_idle_cb(self):
-        if self.curr_label.next != '':
-            self.next_label_time = self.world.data['labels'][self.curr_label.next]['time']
+        if self.curr_label.flowto != '':
+            self.end_label_time = self.world.data['labels'][self.curr_label.flowto]['time']
         else:
-            self.next_label_time = -1
+            self.end_label_time = -1
 
     def idle_cb(self):
         timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
-        if self.next_label_time > 0 and timestamp > self.next_label_time * 1e9:
-            print("IDLE Setting label to {}".format(self.curr_label.next))
-            self.set_label(self.curr_label.next)
+        if self.end_label_time > 0 and timestamp > self.end_label_time * 1e9:
+            print("IDLE Setting label to {}".format(self.curr_label.flowto))
+            self.set_label(self.curr_label.flowto)
 
     def enter_choice_cb(self):
         timestamp = self.curr_label.time
-        self.active_dialog = ChoiceDialog(self.curr_label.choice)
-        self.next_label_time = timestamp + self.curr_label.choice.duration
-        self.socketIO.emit("show_choice", self.curr_label.choice.json_data)
+        self.active_dialogs = [ChoiceDialog(self.curr_label.choice)]
+        self.end_label_time = timestamp + self.curr_label.choice.duration
+        self.socketIO.emit("show_choice", self.curr_label.choice.make_json_data())
         #print("timestamp: {}".format(timestamp))
-        #print("next label time: {}".format(self.next_label_time))
+        #print("end label time: {}".format(self.end_label_time))
 
     def leave_choice_cb(self):
-        self.active_dialog = None
+        self.active_dialogs = []
 
     def choice_cb(self):
         if self.curr_label.choice:
             timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
             #print("timestamp: {}".format(timestamp))
-            #print("next label time: {}".format(self.next_label_time))
-            if timestamp > self.next_label_time * 1e9:
+            #print("end label time: {}".format(self.end_label_time))
+            if timestamp > self.end_label_time * 1e9:
                 chosen_option_name = None
                 max_num_votes = -1
                 for name, option in self.curr_label.choice.options.items():
                     if option.votes > max_num_votes:
                         chosen_option_name = name
                         max_num_votes = option.votes
-                jump = self.curr_label.choice.options[chosen_option_name].jump
-                print("CHOICE Setting label to {}".format(jump))
-                self.jump_label(jump)
+                jumpto = self.curr_label.choice.options[chosen_option_name].jumpto
+                print("CHOICE Setting label to {}".format(jumpto))
+                self.jump_label(jumpto)
+
+
+    def enter_sportsball_cb(self):
+        timestamp = self.curr_label.time
+        self.active_dialogs = []
+        x_value = 100
+        for player in self.world.sportsball.players:
+            player.ability_choice.x = x_value
+            x_value += 300
+            new_dialog = ChoiceDialog(player.ability_choice)
+            self.active_dialogs.append(new_dialog)
+        self.end_label_time = timestamp + self.curr_label.sportsball_quarter.duration
+        # Emit choice show event for each different player in corresponding room
+        for i, player in enumerate(self.world.sportsball.players):
+            self.socketIO.emit("show_choice", player.ability_choice.make_json_data())
+
+    def leave_sportsball_cb(self):
+        self.active_dialogs = []    # Clear active dialogs
+
+    def sportsball_cb(self):
+        timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
+        #print("timestamp: {}".format(timestamp))
+        #print("end label time: {}".format(self.end_label_time))
+        required_move_used = False
+        if timestamp > self.end_label_time * 1e9:
+            for i, player in enumerate(self.world.sportsball.players):
+                chosen_move = None
+                max_num_votes = -1
+                for name, option in player.ability_choice.options.items():
+                    if option.votes > max_num_votes:
+                        chosen_move = name
+                        max_num_votes = option.votes
+                label_to_queue = player.ability_choice.options[chosen_move].jumpto
+                print("SPORTSBALL enqueue label {}".format(label_to_queue))
+
+                self.enqueue_label(label_to_queue)
+                if label_to_queue == self.curr_label.sportsball_quarter.required_move:
+                    required_move_used = True
+                    break
+
+            if not required_move_used:
+                self.enqueue_label(self.world.sportsball.lose_label)
+
+            self.jump_label("queued")
 
 
     def enter_jump_cb(self):
-        jump_label_name = self.curr_label.jump
+        jump_label_name = self.curr_label.jumpto
         self.jump_label(jump_label_name)
 
     def vote_cb(self, option):
         print("Vote callback: {}".format(option))
-        if self.active_dialog and type(self.active_dialog) == ChoiceDialog:
-            if option in self.active_dialog.choice.options:
-                self.active_dialog.choice.options[option].votes += 1
-                play_sound(audioFile)
+        if self.active_dialogs:
+            for dialog in self.active_dialogs:
+                if type(dialog) == ChoiceDialog and option in dialog.choice.options:
+                    dialog.choice.options[option].votes += 1
+                    play_sound(audioFile)
+                    break
 
  
     def openFile(self, fileName):
@@ -388,9 +493,10 @@ class Player:
     def on_draw(self, _overlay, context, timestamp, _duration):
         (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
         self.update()
-        if self.active_dialog != None:
-            self.active_dialog.draw(context, timestamp)
-            self.active_dialog.update()
+        if self.active_dialogs:
+            for dialog in self.active_dialogs:
+                dialog.draw(context, timestamp)
+                dialog.update()
 
     def on_q_pressed(self, *args):
         self.quit()
@@ -417,8 +523,9 @@ class Player:
 
 class SocketIOListener:
 
-    def __init__(self, player):
+    def __init__(self, player, socketIO):
         self.player = player
+        self.socketIO = socketIO
 
     def on_connect(self):
         print('connected')
@@ -434,7 +541,7 @@ class SocketIOListener:
 
 def listen_to_server(player, socketIO):
     try:
-        listener = SocketIOListener(player)
+        listener = SocketIOListener(player, socketIO)
         socketIO.on('connect', listener.on_connect)
         socketIO.on('disconnect', listener.on_disconnect)
         socketIO.on('reconnect', listener.on_reconnect)
