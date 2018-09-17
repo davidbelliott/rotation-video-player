@@ -1,5 +1,5 @@
 {
-    "starting_label": "upstairs_downstairs_choice",
+    "starting_label": "avery_tour_start",
     "labels": {
         "avery_tour_start": {
             "time": 0,
@@ -7,6 +7,69 @@
         },
         "upstairs_downstairs_choice": {
             "time": 48,
+            "sportsball_game": {
+                "players": {
+                    "Noelle": {
+                        "abilities": {
+                            "Kick ball": "noelle_kick_ball",
+                            "Head ball": "noelle_head_ball",
+                            "Jump": "noelle_jump",
+                            "Duck": "noelle_duck",
+                            "Dodge": "noelle_dodge"
+                        }
+                    },
+                    "Nora": {
+                        "abilities": {
+                            "Throw balls": "nora_throw_balls",
+                            "Discus": "nora_discus",
+                            "Bowl them away": "nora_bowl"
+                        }
+                    },
+                    "Tiger": {
+                        "abilities": {
+                            "Rocket sprint": "tiger_sprint",
+                            "Speedwalk": "tiger_speedwalk",
+                            "Hurdles": "tiger_hurdles"
+                        }
+                    },
+                    "Adrian": {
+                        "abilities": {
+                            "Pincer attack": "adrian_pincer",
+                            "Bunt": "adrian_bunt",
+                            "Bat of peace": "adrian_bat",
+                            "Hole in one": "adrian_hole_in_one"
+                        }
+                    },
+                    "David": {
+                        "abilities": {
+                            "Headbutt": "david_headbutt",
+                            "Dribble": "david_dribble",
+                            "Touchdown": "david_touchdown"
+                        }
+                    },
+                    "Evan": {
+                        "abilities": {
+                            "Catch ball": "evan_catch_ball",
+                            "Catch frisbee": "evan_catch_frisbee",
+                            "Catch bat": "evan_catch_bat",
+                            "Pep talk": "evan_pep_talk"
+                        }
+                    }
+                },
+                "quarters": [
+                    {
+                        "name": "1st Quarter",
+                        "required_moves": "evan_pep_talk"
+                    },
+                    {
+                        "name": "2nd Quarter",
+                        "required_moves": "david_touchdown"
+                    }
+                ],
+                "lose_label": "avery_lose",
+                "win_label": "avery_win"
+            },
+
             "choice": {
                 "prompt": "Where do you go next?",
                 "options": {
