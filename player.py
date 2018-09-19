@@ -91,7 +91,7 @@ class Label:
 class SportsballPlayer:
     def __init__(self, name, json_data, room_index):
         self.name = name
-        self.ability_choice = Choice(name, {value: Option(key, value) for (key, value) in json_data['abilities'].items()}, room=str(room_index))
+        self.ability_choice = Choice(name, {value: Option(key, value) for (key, value) in json_data['abilities'].items()}, room=str(room_index), x = json_data['x'], y = json_data['y'])
 
 class SportsballGame:
     def __init__(self, json_data):
@@ -100,13 +100,14 @@ class SportsballGame:
         for (key, value) in json_data['players'].items():
             self.players.append(SportsballPlayer(key, value, room_index))
             room_index += 1
-        self.lose_label = json_data['lose_label']
-        self.win_label = json_data['win_label']
 
 class SportsballQuarter:
     def __init__(self, json_data):
         self.duration = json_data['duration']
         self.required_move = json_data['required_move']
+        self.enemy_moves = json_data['enemy_moves']
+        self.lose_label = json_data['lose_label']
+        self.win_label = json_data['win_label']
 
 
 class World:
@@ -342,9 +343,16 @@ class Player:
             if self.label_queue.empty():
                 return
             new_label = self.label_queue.get_nowait()
-        lbl = Label(new_label, self.world.data['labels'][new_label])
-        self.seek(lbl.time * 1e9)
-        self.set_label(new_label)
+        try:
+            timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
+            lbl = Label(new_label, self.world.data['labels'][new_label])
+            if abs(lbl.time * 1e9 - timestamp) > 0.1 * 1e9:
+                print("Cur time: {}".format(timestamp))
+                print("Label time: {}".format(lbl.time * 1e9))
+                self.seek(lbl.time * 1e9)
+            self.set_label(new_label)
+        except KeyError:
+            print("Error: nonexistent label {}".format(new_label))
 
     def set_label(self, new_label):
         print("Setting label")
@@ -386,6 +394,8 @@ class Player:
 
     def leave_choice_cb(self):
         self.active_dialogs = []
+        print("CLEARING CHOICE")
+        self.socketIO.emit("clear_choice")
 
     def choice_cb(self):
         if self.curr_label.choice:
@@ -407,10 +417,7 @@ class Player:
     def enter_sportsball_cb(self):
         timestamp = self.curr_label.time
         self.active_dialogs = []
-        x_value = 100
         for player in self.world.sportsball.players:
-            player.ability_choice.x = x_value
-            x_value += 300
             new_dialog = ChoiceDialog(player.ability_choice)
             self.active_dialogs.append(new_dialog)
         self.end_label_time = timestamp + self.curr_label.sportsball_quarter.duration
@@ -420,6 +427,8 @@ class Player:
 
     def leave_sportsball_cb(self):
         self.active_dialogs = []    # Clear active dialogs
+        print("CLEARING CHOICE")
+        self.socketIO.emit("clear_choice")
 
     def sportsball_cb(self):
         timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
@@ -437,13 +446,28 @@ class Player:
                 label_to_queue = player.ability_choice.options[chosen_move].jumpto
                 print("SPORTSBALL enqueue label {}".format(label_to_queue))
 
-                self.enqueue_label(label_to_queue)
                 if label_to_queue == self.curr_label.sportsball_quarter.required_move:
+                    # Play the enemy moves, if any
+                    if self.curr_label.sportsball_quarter.enemy_moves:
+                        for move in self.curr_label.sportsball_quarter.enemy_moves:
+                            self.enqueue_label(move)
+                    # Play the winning move (must go last into the queue)
+                    self.enqueue_label(label_to_queue)
                     required_move_used = True
                     break
+                self.enqueue_label(label_to_queue)
 
-            if not required_move_used:
-                self.enqueue_label(self.world.sportsball.lose_label)
+
+            if required_move_used:
+                self.enqueue_label(self.curr_label.sportsball_quarter.win_label)
+            # Lose if no winning move
+            else:
+                # Play the enemy moves, if any
+                if self.curr_label.sportsball_quarter.enemy_moves:
+                    for move in self.curr_label.sportsball_quarter.enemy_moves:
+                        self.enqueue_label(move)
+                self.enqueue_label(self.curr_label.sportsball_quarter.lose_label)
+                self.enqueue_label(self.curr_label.name)    # retry from current label
 
             self.jump_label("queued")
 
@@ -547,6 +571,7 @@ def listen_to_server(player, socketIO):
         socketIO.on('reconnect', listener.on_reconnect)
         socketIO.on('cast_vote', listener.on_cast_vote)
         socketIO.emit('join', {'is_movie_player': True})
+        socketIO.emit('clear_choice')
         socketIO.wait()
     except ConnectionError:
         print('Connection error')

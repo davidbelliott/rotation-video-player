@@ -25,7 +25,10 @@
             "time": 1149,
             "sportsball_quarter": {
                 "duration": 20,
-                "required_move": "evan_pep_talk"
+                "required_move": "evan_pep_talk",
+                "enemy_moves": ["matthew_throw_goal"],
+                "lose_label": "avery_lose",
+                "win_label": "sportsball_2nd_quarter_directions"
             }
         },
         "upstairs": {
@@ -102,39 +105,165 @@
         "nora_throw_balls_end": {
             "time": 1171,
             "jumpto": "queued"
+        },
+        "nora_discus": {
+            "time": 1171,
+            "flowto": "nora_discus_end"
+        },
+        "nora_discus_end": {
+            "time": 1173,
+            "jumpto": "queued"
+        },
+        "nora_bowl": {
+            "time": 1173,
+            "flowto": "nora_bowl_end"
+        },
+        "nora_bowl_end": {
+            "time": 1176,
+            "jumpto": "queued"
+        },
+        "matthew_throw_goal": {
+            "time": 1176,
+            "flowto": "matthew_throw_goal_end"
+        },
+        "matthew_throw_goal_end": {
+            "time": 1181,
+            "jumpto": "queued"
+        },
+        "avery_lose": {
+            "time": 1182,
+            "flowto": "avery_lose_end"
+        },
+        "avery_lose_end": {
+            "time": 1188,
+            "jumpto": "queued"
+        },
+        "evan_pep_talk": {
+            "time": 1188,
+            "flowto": "evan_pep_talk_end"
+        },
+        "evan_pep_talk_end": {
+            "time": 1198,
+            "jumpto": "queued"
+        },
+        "sportsball_2nd_quarter_directions": {
+            "time": 1198,
+            "flowto": "sportsball_2nd_quarter"
+        },
+        "sportsball_2nd_quarter": {
+            "time": 1209,
+            "sportsball_quarter": {
+                "duration": 8,
+                "required_move": "david_touchdown",
+                "enemy_moves": ["matthew_throw_goal"],
+                "lose_label": "avery_lose",
+                "win_label": "avery_win"
+            }
+        },
+        "evan_catch_ball": {
+            "time": 1219,
+            "flowto": "evan_catch_ball_end"
+        },
+        "evan_catch_ball_end": {
+            "time": 1220,
+            "jumpto": "queued"
+        },
+        "evan_catch_frisbee": {
+            "time": 1220,
+            "flowto": "evan_catch_frisbee_end"
+        },
+        "evan_catch_frisbee_end": {
+            "time": 1222,
+            "jumpto": "queued"
+        },
+        "evan_catch_bat": {
+            "time": 1222,
+            "flowto": "evan_catch_bat_end"
+        },
+        "evan_catch_bat_end": {
+            "time": 1226,
+            "jumpto": "queued"
+        },
+        "adrian_hole_in_one": {
+            "time": 1226,
+            "flowto": "adrian_hole_in_one_end"
+        },
+        "adrian_hole_in_one_end": {
+            "time": 1228,
+            "jumpto": "queued"
+        },
+        "adrian_bunt": {
+            "time": 1228,
+            "flowto": "adrian_bunt_end"
+        },
+        "adrian_bunt_end": {
+            "time": 1230,
+            "jumpto": "queued"
+        },
+        "adrian_bat": {
+            "time": 1230,
+            "flowto": "adrian_bat_end"
+        },
+        "adrian_bat_end": {
+            "time": 1232,
+            "jumpto": "queued"
+        },
+        "david_dribble": {
+            "time": 1233,
+            "flowto": "david_dribble_end"
+        },
+        "david_dribble_end": {
+            "time": 1234,
+            "jumpto": "queued"
+        },
+        "david_headbutt": {
+            "time": 1234,
+            "flowto": "david_headbutt_end"
+        },
+        "david_headbutt_end": {
+            "time": 1236,
+            "jumpto": "queued"
+        },
+        "david_touchdown": {
+            "time": 1236,
+            "flowto": "david_touchdown_end"
+        },
+        "david_touchdown_end": {
+            "time": 1238,
+            "jumpto": "queued"
+        },
+        "avery_win": {
+            "time": 1238
         }
     },
     "sportsball": {
         "players": {
-            "Noelle": {
-                "abilities": {
-                    "Kick ball": "noelle_kick_ball",
-                    "Head ball": "noelle_head_ball",
-                    "Jump": "noelle_jump",
-                    "Duck": "noelle_duck",
-                    "Dodge": "noelle_dodge"
-                }
-            },
             "Nora": {
                 "abilities": {
                     "Throw balls": "nora_throw_balls",
                     "Discus": "nora_discus",
                     "Bowl them away": "nora_bowl"
-                }
+                },
+                "x": 500,
+                "y": 120
             },
             "Tiger": {
                 "abilities": {
                     "Rocket sprint": "tiger_sprint",
                     "Speedwalk": "tiger_speedwalk",
                     "Hurdles": "tiger_hurdles"
-                }
+                },
+                "x": 900,
+                "y": 100
             },
             "Adrian": {
                 "abilities": {
                     "Bunt": "adrian_bunt",
                     "Bat of peace": "adrian_bat",
                     "Hole in one": "adrian_hole_in_one"
-                }
+                },
+                "x": 1500,
+                "y": 100
             },
             "Evan": {
                 "abilities": {
@@ -142,17 +271,30 @@
                     "Catch frisbee": "evan_catch_frisbee",
                     "Catch bat": "evan_catch_bat",
                     "Pep talk": "evan_pep_talk"
-                }
+                },
+                "x": 1250,
+                "y": 400
             },
             "David": {
                 "abilities": {
                     "Headbutt": "david_headbutt",
                     "Dribble": "david_dribble",
                     "Touchdown": "david_touchdown"
-                }
+                },
+                "x": 600,
+                "y": 550
             }
-        },
-        "lose_label": "avery_lose",
-        "win_label": "avery_win"
-    }
+        }
+    },
+            "Noelle": {
+                "abilities": {
+                    "Kick ball": "noelle_kick_ball",
+                    "Head ball": "noelle_head_ball",
+                    "Jump": "noelle_jump",
+                    "Duck": "noelle_duck",
+                    "Dodge": "noelle_dodge"
+                },
+                "x": 100,
+                "y": 100
+            }
 }
