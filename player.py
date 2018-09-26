@@ -19,8 +19,7 @@ gi.require_foreign('cairo')
 from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
 
 
-SERVER_URL = 'localhost'
-SERVER_PORT = 5000
+SERVER_URL = 'https://avery.caltech.edu/'
 
 mainLoop = GLib.MainLoop.new(None, False)
 
@@ -597,7 +596,7 @@ if __name__ == '__main__':
 
     # Initialize objects
     world = World(args.filename)
-    socketIO = SocketIO(SERVER_URL, SERVER_PORT, LoggingNamespace)
+    socketIO = SocketIO(SERVER_URL)
     player = Player(world, socketIO)
 
     # Start listener thread
