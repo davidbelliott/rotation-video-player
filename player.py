@@ -5,14 +5,15 @@ import argparse
 import json
 import time
 import threading
-import pygame
 from collections import OrderedDict
 from enum import Enum
 from socketIO_client import SocketIO, LoggingNamespace
 from queue import Queue
+from random_words import RandomWords
 
 import random
 import cairo
+import subprocess
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_foreign('cairo')
@@ -20,18 +21,28 @@ from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
 
 
 SERVER_URL = 'https://avery.caltech.edu/'
+MEDIA_PATH = 'videos/'
 
 mainLoop = GLib.MainLoop.new(None, False)
+rw = RandomWords()
 
-_sound_library = {}
 def play_sound(path):
-    '''global _sound_library
-    sound = _sound_library.get(path)
-    if sound == None:
-        canonicalized_path = path.replace('/', os.sep).replace('\\', os.sep)
-        sound = pygame.mixer.Sound(canonicalized_path)
-        _sound_library[path] = sound
-    sound.play()'''
+    subprocess.call(["ffplay", "-nodisp", "-autoexit", path])
+
+music_proc = None
+def play_music(path):
+    global music_proc
+    if music_proc:
+        music_proc.kill()
+        music_proc = None
+    music_proc = subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-loop", "0", path])
+
+def stop_music():
+    global music_proc
+    if music_proc:
+        music_proc.kill()
+        music_proc = None
+
 
 videoFile = "file:///home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/main.mp4"
 audioFile = "/home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/ding.wav"
@@ -85,7 +96,19 @@ class Label:
         self.choice = Choice.from_json(json_data['choice']) if 'choice' in json_data else None
         self.jumpto = json_data['jumpto'] if 'jumpto' in json_data else None
         self.sportsball_quarter = SportsballQuarter(json_data['sportsball_quarter']) if 'sportsball_quarter'in json_data else None
+        self.poem = Poem(json_data['poem']) if 'poem' in json_data else None
+        self.play_music = PlayMusic(json_data['play_music']) if 'play_music' in json_data else None
+        self.stop_music = StopMusic(json_data['stop_music']) if 'stop_music' in json_data else None
 
+
+class PlayMusic:
+    def __init__(self, json_data):
+        self.filename = json_data["filename"]
+        self.on = json_data["on"]
+
+class StopMusic:
+    def __init__(self, json_data):
+        self.on = json_data["on"]
 
 class SportsballPlayer:
     def __init__(self, name, json_data, room_index):
@@ -108,6 +131,15 @@ class SportsballQuarter:
         self.lose_label = json_data['lose_label']
         self.win_label = json_data['win_label']
 
+class Poem:
+    def __init__(self, json_data):
+        self.duration = json_data['duration']
+        self.max_words = json_data['max_words']
+        self.girl_options = json_data['girl_options']
+        self.jumpto = json_data['jumpto']
+        self.words = []
+        self.liked_words = []
+        self.girl = None
 
 class World:
     def __init__(self, filename):
@@ -227,19 +259,57 @@ class ChoiceDialog:
                 box.fill_percent = fill_percent
             box.update()
 
+class PoemDialog:
+
+    def __init__(self, poem):
+        self.poem = poem
+        self.title_x = 100
+        self.title_y = 100
+        self.starting_x = 100
+        self.starting_y = 200
+
+    def draw(self, context, timestamp):
+        context.move_to(self.title_x, self.title_y)
+        context.select_font_face('Noto Sans', cairo.FONT_SLANT_NORMAL, cairo.FONT_WEIGHT_BOLD)
+        context.set_font_size(60)
+        context.set_source_rgba(1, 1, 1, 1)
+        if not self.poem.girl:
+            context.text_path("Let's write a poem! Everybody choose a word!")
+        else:
+            context.text_path("{} loves these words you used!".format(self.poem.girl))
+        context.fill()
+        context.move_to(self.starting_x, self.starting_y)
+        context.select_font_face('Noto Sans', cairo.FONT_SLANT_ITALIC, cairo.FONT_WEIGHT_BOLD)
+        for word in self.poem.words:
+            context.set_font_size(40)
+            if word in self.poem.liked_words:
+                context.set_source_rgba(1, 0, 0, 1)
+            else:
+                context.set_source_rgba(1, 1, 1, 1)
+            context.text_path(word)
+            (x, y) = context.get_current_point()
+            print("({}, {})".format(x, y))
+            if x > 1700:
+                x = self.starting_x
+                y += 50
+            else:
+                x += 20
+            context.move_to(x, y)
+        context.fill()
+
+    def update(self):
+        pass
+
 STATE_IDLE = 0
 STATE_CHOICE = 1
 STATE_JUMP = 2
 STATE_SPORTSBALL = 3
+STATE_POEM = 4
 
 # indices of state_funcs
 CB_ON_ENTER = 0
 CB_RUN = 1
 CB_ON_EXIT = 2
-
-
-LISTEN_ADDRESS = ('localhost', 6000)
-AUTHKEY = b'overthrow'
 
 
 class Player:
@@ -250,8 +320,10 @@ class Player:
         self.socketIO = socketIO
         #self.choices = ChoiceDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
         self.active_dialogs = []
+        self.users = []
         self.label_queue = Queue()
         self.fullscreen = False
+        self.girl = None
 
         #GES stuff
         self.timeline = GES.Timeline.new_audio_video()
@@ -306,7 +378,8 @@ class Player:
             STATE_IDLE: [self.enter_idle_cb, self.idle_cb, None],
             STATE_CHOICE: [self.enter_choice_cb, self.choice_cb, self.leave_choice_cb],
             STATE_JUMP: [self.enter_jump_cb, None, None],
-            STATE_SPORTSBALL: [self.enter_sportsball_cb, self.sportsball_cb, self.leave_sportsball_cb]
+            STATE_SPORTSBALL: [self.enter_sportsball_cb, self.sportsball_cb, self.leave_sportsball_cb],
+            STATE_POEM: [self.enter_poem_cb, self.poem_cb, self.leave_poem_cb]
         }
         self.end_label_time = -1 #TODO: better solution
 
@@ -342,6 +415,9 @@ class Player:
             if self.label_queue.empty():
                 return
             new_label = self.label_queue.get_nowait()
+        if self.girl:
+            print("Replacing with {}".format(self.girl))
+            new_label = new_label.replace("{girl}", self.girl)
         try:
             timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
             lbl = Label(new_label, self.world.data['labels'][new_label])
@@ -358,7 +434,10 @@ class Player:
         label_json = self.world.data['labels'][new_label]
         self.curr_label = Label(new_label, label_json)
         print("Set label to {}".format(new_label))
-        if self.curr_label.sportsball_quarter != None:
+        if self.curr_label.poem != None:
+            print("Setting state to POEM")
+            self.set_state(STATE_POEM)
+        elif self.curr_label.sportsball_quarter != None:
             print("Setting state to SPORTSBALL")
             self.set_state(STATE_SPORTSBALL)
         elif self.curr_label.jumpto != None:
@@ -371,7 +450,23 @@ class Player:
             print("Setting state to IDLE")
             self.set_state(STATE_IDLE)
 
+    def enter_any_cb(self):
+        if self.curr_label.play_music and self.curr_label.play_music.on == "enter":
+            play_music(MEDIA_PATH + self.curr_label.play_music.filename)
+        if self.curr_label.stop_music and self.curr_label.stop_music.on == "enter":
+            stop_music()
+
+    def any_cb(self):
+        pass
+
+    def leave_any_cb(self):
+        if self.curr_label.play_music and self.curr_label.play_music.on == "exit":
+            play_music(MEDIA_PATH + self.curr_label.play_music.filename)
+        if self.curr_label.stop_music and self.curr_label.stop_music.on == "exit":
+            stop_music()
+
     def enter_idle_cb(self):
+        self.enter_any_cb()
         if self.curr_label.flowto != '':
             self.end_label_time = self.world.data['labels'][self.curr_label.flowto]['time']
         else:
@@ -384,6 +479,7 @@ class Player:
             self.set_label(self.curr_label.flowto)
 
     def enter_choice_cb(self):
+        self.enter_any_cb()
         timestamp = self.curr_label.time
         self.active_dialogs = [ChoiceDialog(self.curr_label.choice)]
         self.end_label_time = timestamp + self.curr_label.choice.duration
@@ -392,11 +488,13 @@ class Player:
         #print("end label time: {}".format(self.end_label_time))
 
     def leave_choice_cb(self):
+        self.leave_any_cb()
         self.active_dialogs = []
         print("CLEARING CHOICE")
         self.socketIO.emit("clear_choice")
 
     def choice_cb(self):
+        self.any_cb()
         if self.curr_label.choice:
             timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
             #print("timestamp: {}".format(timestamp))
@@ -414,6 +512,7 @@ class Player:
 
 
     def enter_sportsball_cb(self):
+        self.enter_any_cb()
         timestamp = self.curr_label.time
         self.active_dialogs = []
         for player in self.world.sportsball.players:
@@ -425,11 +524,13 @@ class Player:
             self.socketIO.emit("show_choice", player.ability_choice.make_json_data())
 
     def leave_sportsball_cb(self):
+        self.leave_any_cb()
         self.active_dialogs = []    # Clear active dialogs
         print("CLEARING CHOICE")
         self.socketIO.emit("clear_choice")
 
     def sportsball_cb(self):
+        self.any_cb()
         timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
         #print("timestamp: {}".format(timestamp))
         #print("end label time: {}".format(self.end_label_time))
@@ -470,8 +571,40 @@ class Player:
 
             self.jump_label("queued")
 
+    def enter_poem_cb(self):
+        self.enter_any_cb()
+        print("ENTERING POEM")
+        timestamp = self.curr_label.time
+        self.active_dialogs = [PoemDialog(self.curr_label.poem)]
+        self.end_label_time = timestamp + self.curr_label.poem.duration
+        print("Poem duration: {}".format(self.curr_label.poem.duration))
+        for user in self.users:
+            words = rw.random_words(count=5)
+            self.socketIO.emit("show_choice", Choice("Choose a word for the poem", {word: Option(word, None) for word in words}, self.curr_label.poem.duration, room=user).make_json_data())
+
+    def poem_cb(self):
+        self.any_cb()
+        print(self.curr_label.poem.words)
+        timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
+        #print("timestamp: {}".format(timestamp))
+        #print("end label time: {}".format(self.end_label_time))
+        if timestamp > self.end_label_time * 1e9 - 5 and not self.girl:
+            self.girl = random.choice(self.curr_label.poem.girl_options)
+            self.curr_label.poem.girl = self.girl
+            self.curr_label.poem.liked_words = random.sample(self.curr_label.poem.words, min(len(self.curr_label.poem.words), 5))
+        if timestamp > self.end_label_time * 1e9:
+            jumpto = self.curr_label.poem.jumpto
+            print("POEM Setting label to {}".format(jumpto))
+            self.jump_label(jumpto)
+
+    def leave_poem_cb(self):
+        self.leave_any_cb()
+        self.active_dialogs = []
+        print("CLEARING CHOICE")
+        self.socketIO.emit("clear_choice")
 
     def enter_jump_cb(self):
+        self.enter_any_cb()
         jump_label_name = self.curr_label.jumpto
         self.jump_label(jump_label_name)
 
@@ -481,8 +614,20 @@ class Player:
             for dialog in self.active_dialogs:
                 if type(dialog) == ChoiceDialog and option in dialog.choice.options:
                     dialog.choice.options[option].votes += 1
+                    #play_sound(audioFile)
+                    play_music('videos/doki.mp3')
+                    break
+                if type(dialog) == PoemDialog:
+                    print("Appending {}".format(option))
+                    dialog.poem.words.append(option)
                     play_sound(audioFile)
                     break
+
+    def add_user(self, user_id, voted):
+        self.users.append(user_id)
+
+    def remove_user(self, user_id):
+        self.users.remove(user_id)
 
  
     def openFile(self, fileName):
@@ -535,6 +680,7 @@ class Player:
     def quit(self):
         self.pipeline.set_state(Gst.State.NULL)
         mainLoop.quit()
+        stop_music()
         exit(0)
 
     def window_closed(self, widget, event):
@@ -562,6 +708,18 @@ class SocketIOListener:
     def on_cast_vote(self, data):
         self.player.vote_cb(data)
 
+    def on_user_joined(self, data):
+        print("User joined: {}, {}".format(data["id"], data["voted"]))
+        self.player.add_user(data["id"], data["voted"])
+
+    def on_user_left(self, data):
+        print("User left: {}".format(data["id"]))
+        self.player.remove_user(data["id"])
+
+    def on_users(self, data):
+        print("Users received: {}".format(data))
+        self.player.users = data
+
 def listen_to_server(player, socketIO):
     try:
         listener = SocketIOListener(player, socketIO)
@@ -569,8 +727,10 @@ def listen_to_server(player, socketIO):
         socketIO.on('disconnect', listener.on_disconnect)
         socketIO.on('reconnect', listener.on_reconnect)
         socketIO.on('cast_vote', listener.on_cast_vote)
+        socketIO.on('user_joined', listener.on_user_joined)
+        socketIO.on('user_left', listener.on_user_left)
+        socketIO.on('users', listener.on_users)
         socketIO.emit('join', {'is_movie_player': True})
-        socketIO.emit('clear_choice')
         socketIO.wait()
     except ConnectionError:
         print('Connection error')
@@ -586,8 +746,6 @@ if __name__ == '__main__':
     GES.init()
     GObject.threads_init()
     Gst.init(None)
-    #pygame.init()
-    #pygame.mixer.init()
 
     # Parse arguments
     parser = argparse.ArgumentParser()
@@ -600,8 +758,8 @@ if __name__ == '__main__':
     player = Player(world, socketIO)
 
     # Start listener thread
-    thread = threading.Thread(target=listen_to_server, args=[player, socketIO], daemon=True);
-    thread.start()
+    #thread = threading.Thread(target=listen_to_server, args=[player, socketIO], daemon=True);
+    #thread.start()
 
     # Run main loop
     GLib.MainLoop().run()

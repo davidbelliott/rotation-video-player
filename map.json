@@ -1,20 +1,48 @@
 {
-    "starting_label": "avery_tour_start",
+    "starting_label": "help-friends-choice",
     "labels": {
+        "intro": {
+            "time": 0,
+            "flowto": "intro_choice"
+        },
+        "intro_choice": {
+            "time": 65,
+            "choice": {
+                "prompt": "Do you wish to embark on this tour?",
+                "options": {
+                    "yes": {"text": "Yes", "jumpto": "avery_tour_start"},
+                    "yes": {"text": "Yes", "jumpto": "avery_tour_start"}
+                },
+                "duration": 35,
+                "fill": [0.5, 0.5, 0.5, 0.5],
+                "stroke": [0, 0, 0, 1],
+                "x": 910,
+                "y": 610
+            }
+        },
+        "doki_doki_poem": {
+            "time": 1522.5,
+            "poem": {
+                "duration": 20,
+                "max_words": 30,
+                "girl_options": ["monika", "natsuki", "sayori", "yuri"],
+                "jumpto": "{girl}-like"
+            }
+        },
         "avery_tour_start": {
-            "time": 120,
+            "time": 100,
             "flowto": "upstairs_downstairs_choice"
         },
         "upstairs_downstairs_choice": {
-            "time": 121,
+            "time": 148,
 
             "choice": {
                 "prompt": "Where do you go next?",
                 "options": {
-                    "upstairs": {"text": "Go sportsball", "jumpto": "sportsball_1st_quarter"},
+                    "upstairs": {"text": "Go upstairs", "jumpto": "upstairs"},
                     "downstairs": {"text": "Stay downstairs", "jumpto": "downstairs"}
                 },
-                "duration": 5,
+                "duration": 24,
                 "fill": [0.5, 0.5, 0.5, 0.5],
                 "stroke": [0, 0, 0, 1],
                 "x": 910,
@@ -22,32 +50,36 @@
             }
         },
         "sportsball_1st_quarter": {
-            "time": 1149,
+            "time": 1131,
             "sportsball_quarter": {
-                "duration": 20,
+                "duration": 27,
                 "required_move": "evan_pep_talk",
                 "enemy_moves": ["matthew_throw_goal"],
                 "lose_label": "avery_lose",
                 "win_label": "sportsball_2nd_quarter_directions"
+            },
+            "play_music": {
+                "filename": "sportsball.mp3",
+                "on": "exit"
             }
         },
         "upstairs": {
-            "time": 73,
+            "time": 172,
+            "flowto": "ufb"
+        },
+        "ufb": {
+            "time": 192,
             "flowto": "amulet_choice"
         },
-        "downstairs": {
-            "time": 208,
-            "flowto": ""
-        },
         "amulet_choice": {
-            "time": 130,
+            "time": 233,
             "choice": {
                 "prompt": "How do you respond?",
                 "options": {
-                    "no_amulet_help": {"text": "\"Who cares about some old magickal amulet?\"", "jumpto": "no_amulet_help"},
+                    "no_amulet_help": {"text": "\"Who cares about some old magical amulet?\"", "jumpto": "no_amulet_help"},
                     "amulet_help": {"text": "\"Oh no! Not the amulet!\"", "jumpto": "amulet_help"}
                 },
-                "duration": 22,
+                "duration": 18,
                 "fill": [0, 0, 0, 1],
                 "stroke": [1, 1, 1, 1],
                 "x": 710,
@@ -55,24 +87,160 @@
             }
         },
         "no_amulet_help": {
-            "time": 152,
-            "flowto": "no_amulet_help_respawn"
-        },
-        "no_amulet_help_respawn": {
-            "time": 186,
-            "jumpto": "amulet_help"
+            "time": 251,
+            "flowto": "amulet_help"
         },
         "amulet_help": {
-            "time": 186,
+            "time": 277,
             "flowto": "amulet_help_jump"
         },
         "amulet_help_jump": {
-            "time": 197,
+            "time": 288,
             "jumpto": "boba"
         },
+        "downstairs": {
+            "time": 297,
+            "flowto": "downstairs-end"
+        },
+        "downstairs-end": {
+            "time": 349,
+            "jumpto": "ufb"
+        },
         "boba": {
-            "time": 259,
-            "flowto": ""
+            "time": 352,
+            "flowto": "boba-choice"
+        },
+        "boba-choice": {
+            "time": 400,
+            "choice": {
+                "prompt": "The COOL KIDS pressure you to drink the boba. What do you do?",
+                "options": {
+                    "little-sip": {"text": "Take just a little sip", "jumpto": "little-sip"},
+                    "big-gulp": {"text": "Take a big gulp", "jumpto": "big-gulp"},
+                    "no-drink": {"text": "Don't drink any", "jumpto": "no-drink"}
+                },
+                "duration": 23,
+                "fill": [1, 1, 1, 0.25],
+                "stroke": [1, 1, 1, 1],
+                "x": 500,
+                "y": 100
+            }
+        },
+        "little-sip": {
+            "time": 423,
+            "flowto": "little-sip-end"
+        },
+        "little-sip-end": {
+            "time": 437,
+            "jumpto": "kidnapping"
+        },
+        "big-gulp": {
+            "time": 438,
+            "flowto": "big-gulp-end"
+        },
+        "big-gulp-end": {
+            "time": 454,
+            "jumpto": "kidnapping"
+        },
+        "no-drink": {
+            "time": 455,
+            "flowto": "kidnapping"
+        },
+        "kidnapping": {
+            "time": 463,
+            "flowto": "escape-choice"
+        },
+        "escape-choice": {
+            "time": 740,
+            "choice": {
+                "prompt": "David wants to BREAK OUTTA this JOINT.",
+                "options": {
+                    "escape": {"text": "\"All right, I'm in.\"", "jumpto": "escape"},
+                    "no-escape": {"text": "\"I don't know...That sounds a bit scary and violent\"", "jumpto": "no-escape"}
+                },
+                "duration": 15,
+                "fill": [1, 0, 0, 0.25],
+                "stroke": [1, 0, 0, 1],
+                "x": 810,
+                "y": 410
+            }
+        },
+        "no-escape": {
+            "time": 755,
+            "flowto": "escape"
+        },
+        "escape": {
+            "time": 795,
+            "flowto": "weapon-choice"
+        },
+        "weapon-choice": {
+            "time": 844,
+            "choice": {
+                "prompt": "What \"tool\" do you use to \"solve\" this problem?",
+                "options": {
+                    "toothbrush": {"text": "Evan's toothbrush", "jumpto": "toothbrush"},
+                    "hammer": {"text": "David's hammer--a useful tool", "jumpto": "hammer"}
+                },
+                "duration": 26,
+                "fill": [1, 0, 0, 1],
+                "stroke": [0, 0, 1, 1],
+                "x": 550,
+                "y": 400
+            }
+        },
+        "toothbrush": {
+            "time": 870,
+            "flowto": "hammer"
+        },
+        "hammer": {
+            "time": 886,
+            "flowto": "hide-choice"
+        },
+        "hide-choice": {
+            "time": 916,
+            "choice": {
+                "prompt": "A guard looks towards you.",
+                "options": {
+                    "hide": {"text": "Try to remain hidden", "jumpto": "hide"},
+                    "attack": {"text": "Try to attack", "jumpto": "attack"}
+                },
+                "duration": 29,
+                "fill": [0, 0, 1, 0.5],
+                "stroke": [1, 1, 1, 1],
+                "x": 1250,
+                "y": 400
+            }
+        },
+        "attack": {
+            "time": 945,
+            "flowto": "hide"
+        },
+        "hide": {
+            "time": 964,
+            "flowto": "help-friends-choice"
+        },
+        "help-friends-choice": {
+            "time": 982,
+            "choice": {
+                "prompt": "Ruh-roh, your pals are in trouble.",
+                "options": {
+                    "no-help-friends": {"text": "Leave them to fend for themselves", "jumpto": "no-help-friends"},
+                    "help-friends": {"text": "Lend a helping hand", "jumpto": "help-friends"}
+                },
+                "duration": 23,
+                "fill": [1, 1, 1, 1],
+                "stroke": [1, 1, 1, 1],
+                "x": 1050,
+                "y": 10
+            }
+        },
+        "no-help-friends": {
+            "time": 1005,
+            "flowto": "help-friends"
+        },
+        "help-friends": {
+            "time": 1019,
+            "flowto": "sportsball_1st_quarter"
         },
         "tiger_sprint": {
             "time": 1160,
@@ -132,7 +300,10 @@
         },
         "avery_lose": {
             "time": 1182,
-            "flowto": "avery_lose_end"
+            "flowto": "avery_lose_end",
+            "stop_music": {
+                "on": "enter"
+            }
         },
         "avery_lose_end": {
             "time": 1188,
@@ -158,6 +329,10 @@
                 "enemy_moves": ["matthew_throw_goal"],
                 "lose_label": "avery_lose",
                 "win_label": "avery_win"
+            },
+            "play_music": {
+                "filename": "sportsball.mp3",
+                "on": "exit"
             }
         },
         "evan_catch_ball": {
@@ -233,7 +408,10 @@
             "jumpto": "queued"
         },
         "avery_win": {
-            "time": 1238
+            "time": 1238,
+            "stop_music": {
+                "on": "enter"
+            }
         }
     },
     "sportsball": {

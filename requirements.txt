@@ -4,7 +4,9 @@ idna==2.7
 pycairo==1.17.1
 pygame==1.9.4
 PyGObject==3.30.0
+RandomWords==0.2.1
 requests==2.19.1
+simpleaudio==1.0.2
 six==1.11.0
 socketIO-client==0.7.2
 urllib3==1.23
