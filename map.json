@@ -1,5 +1,5 @@
 {
-    "starting_label": "help-friends-choice",
+    "starting_label": "intro_choice",
     "labels": {
         "intro": {
             "time": 0,
@@ -10,23 +10,15 @@
             "choice": {
                 "prompt": "Do you wish to embark on this tour?",
                 "options": {
-                    "yes": {"text": "Yes", "jumpto": "avery_tour_start"},
-                    "yes": {"text": "Yes", "jumpto": "avery_tour_start"}
+                    "yes_1": {"text": "Yes", "jumpto": "avery_tour_start"},
+                    "yes_2": {"text": "Yes", "jumpto": "avery_tour_start"}
                 },
+                "duration-bak": 35,
                 "duration": 35,
-                "fill": [0.5, 0.5, 0.5, 0.5],
-                "stroke": [0, 0, 0, 1],
-                "x": 910,
-                "y": 610
-            }
-        },
-        "doki_doki_poem": {
-            "time": 1522.5,
-            "poem": {
-                "duration": 20,
-                "max_words": 30,
-                "girl_options": ["monika", "natsuki", "sayori", "yuri"],
-                "jumpto": "{girl}-like"
+                "fill": [1, 1, 1, 0.25],
+                "stroke": [1, 1, 1, 1],
+                "x": 600,
+                "y": 600
             }
         },
         "avery_tour_start": {
@@ -50,13 +42,16 @@
             }
         },
         "sportsball_1st_quarter": {
-            "time": 1131,
+            "time": 1132,
             "sportsball_quarter": {
-                "duration": 27,
+                "duration": 26,
                 "required_move": "evan_pep_talk",
                 "enemy_moves": ["matthew_throw_goal"],
                 "lose_label": "avery_lose",
-                "win_label": "sportsball_2nd_quarter_directions"
+                "win_label": "sportsball_2nd_quarter_intro"
+            },
+            "stop_music": {
+                "on": "enter"
             },
             "play_music": {
                 "filename": "sportsball.mp3",
@@ -242,93 +237,140 @@
             "time": 1019,
             "flowto": "sportsball_1st_quarter"
         },
+        "noelle_dodge": {
+            "time": 1162,
+            "flowto": "noelle_dodge_end"
+        },
+        "noelle_dodge_end": {
+            "time": 1166,
+            "jumpto": "queued"
+        },
+        "noelle_jump": {
+            "time": 1166,
+            "flowto": "noelle_jump_end"
+        },
+        "noelle_jump_end": {
+            "time": 1172.5,
+            "jumpto": "queued"
+        },
+        "noelle_kick_ball": {
+            "time": 1172.5,
+            "flowto": "noelle_kick_ball_end"
+        },
+        "noelle_kick_ball_end": {
+            "time": 1176,
+            "jumpto": "queued"
+        },
+        "noelle_head_ball": {
+            "time": 1176,
+            "flowto": "noelle_head_ball_end"
+        },
+        "noelle_head_ball_end": {
+            "time": 1179,
+            "jumpto": "queued"
+        },
+        "noelle_duck": {
+            "time": 1179,
+            "flowto": "noelle_duck_end"
+        },
+        "noelle_duck_end": {
+            "time": 1182,
+            "jumpto": "queued"
+        },
         "tiger_sprint": {
-            "time": 1160,
+            "time": 1183,
             "flowto": "tiger_sprint_end"
         },
         "tiger_sprint_end": {
-            "time": 1162,
+            "time": 1186,
             "jumpto": "queued"
         },
         "tiger_hurdles": {
-            "time": 1162,
+            "time": 1186,
             "flowto": "tiger_hurdles_end"
         },
         "tiger_hurdles_end": {
-            "time": 1164,
+            "time": 1189,
             "jumpto": "queued"
         },
         "tiger_speedwalk": {
-            "time": 1164,
+            "time": 1189,
             "flowto": "tiger_speedwalk_end"
         },
         "tiger_speedwalk_end": {
-            "time": 1167,
+            "time": 1194,
             "jumpto": "queued"
         },
         "nora_throw_balls": {
-            "time": 1168,
+            "time": 1194,
             "flowto": "nora_throw_balls_end"
         },
         "nora_throw_balls_end": {
-            "time": 1171,
+            "time": 1199,
             "jumpto": "queued"
         },
         "nora_discus": {
-            "time": 1171,
+            "time": 1199,
             "flowto": "nora_discus_end"
         },
         "nora_discus_end": {
-            "time": 1173,
+            "time": 1202,
             "jumpto": "queued"
         },
         "nora_bowl": {
-            "time": 1173,
+            "time": 1202,
             "flowto": "nora_bowl_end"
         },
         "nora_bowl_end": {
-            "time": 1176,
+            "time": 1207,
             "jumpto": "queued"
         },
         "matthew_throw_goal": {
-            "time": 1176,
+            "time": 1207,
             "flowto": "matthew_throw_goal_end"
         },
         "matthew_throw_goal_end": {
-            "time": 1181,
+            "time": 1214,
             "jumpto": "queued"
         },
         "avery_lose": {
-            "time": 1182,
-            "flowto": "avery_lose_end",
+            "time": 1214,
+            "flowto": "avery_lose_end"
+        },
+        "avery_lose_end": {
+            "time": 1222,
+            "jumpto": "queued"
+        },
+        "evan_pep_talk": {
+            "time": 1222,
+            "flowto": "evan_pep_talk_end"
+        },
+        "evan_pep_talk_end": {
+            "time": 1233,
+            "jumpto": "queued"
+        },
+        "sportsball_2nd_quarter_intro": {
+            "time": 1233,
+            "flowto": "sportsball_2nd_quarter_directions"
+        },
+        "sportsball_2nd_quarter_directions": {
+            "time": 1235,
+            "flowto": "sportsball_2nd_quarter",
             "stop_music": {
                 "on": "enter"
             }
         },
-        "avery_lose_end": {
-            "time": 1188,
-            "jumpto": "queued"
-        },
-        "evan_pep_talk": {
-            "time": 1188,
-            "flowto": "evan_pep_talk_end"
-        },
-        "evan_pep_talk_end": {
-            "time": 1198,
-            "jumpto": "queued"
-        },
-        "sportsball_2nd_quarter_directions": {
-            "time": 1198,
-            "flowto": "sportsball_2nd_quarter"
-        },
         "sportsball_2nd_quarter": {
-            "time": 1209,
+            "time": 1245,
             "sportsball_quarter": {
-                "duration": 8,
+                "duration": 23,
                 "required_move": "david_touchdown",
                 "enemy_moves": ["matthew_throw_goal"],
                 "lose_label": "avery_lose",
                 "win_label": "avery_win"
+            },
+            "stop_music": {
+                "on": "enter"
             },
             "play_music": {
                 "filename": "sportsball.mp3",
@@ -336,86 +378,407 @@
             }
         },
         "evan_catch_ball": {
-            "time": 1219,
+            "time": 1269,
             "flowto": "evan_catch_ball_end"
         },
         "evan_catch_ball_end": {
-            "time": 1220,
+            "time": 1272,
             "jumpto": "queued"
         },
         "evan_catch_frisbee": {
-            "time": 1220,
+            "time": 1272,
             "flowto": "evan_catch_frisbee_end"
         },
         "evan_catch_frisbee_end": {
-            "time": 1222,
+            "time": 1274.5,
             "jumpto": "queued"
         },
         "evan_catch_bat": {
-            "time": 1222,
+            "time": 1274.5,
             "flowto": "evan_catch_bat_end"
         },
         "evan_catch_bat_end": {
-            "time": 1226,
+            "time": 1279,
+            "jumpto": "queued"
+        },
+        "adrian_pincer_attack": {
+            "time": 1279,
+            "flowto": "adrian_pincer_attack_end"
+        },
+        "adrian_pincer_attack_end": {
+            "time": 1283,
             "jumpto": "queued"
         },
         "adrian_hole_in_one": {
-            "time": 1226,
+            "time": 1283,
             "flowto": "adrian_hole_in_one_end"
         },
         "adrian_hole_in_one_end": {
-            "time": 1228,
+            "time": 1285,
             "jumpto": "queued"
         },
         "adrian_bunt": {
-            "time": 1228,
+            "time": 1285,
             "flowto": "adrian_bunt_end"
         },
         "adrian_bunt_end": {
-            "time": 1230,
+            "time": 1288.5,
             "jumpto": "queued"
         },
         "adrian_bat": {
-            "time": 1230,
+            "time": 1288.5,
             "flowto": "adrian_bat_end"
         },
         "adrian_bat_end": {
-            "time": 1232,
+            "time": 1291,
             "jumpto": "queued"
         },
         "david_dribble": {
-            "time": 1233,
+            "time": 1291,
             "flowto": "david_dribble_end"
         },
         "david_dribble_end": {
-            "time": 1234,
+            "time": 1293.5,
             "jumpto": "queued"
         },
         "david_headbutt": {
-            "time": 1234,
+            "time": 1293.5,
             "flowto": "david_headbutt_end"
         },
         "david_headbutt_end": {
-            "time": 1236,
+            "time": 1295,
             "jumpto": "queued"
         },
         "david_touchdown": {
-            "time": 1236,
+            "time": 1295,
             "flowto": "david_touchdown_end"
         },
         "david_touchdown_end": {
-            "time": 1238,
+            "time": 1297,
             "jumpto": "queued"
         },
         "avery_win": {
-            "time": 1238,
+            "time": 1297,
+            "flowto": "hacker-command-choice",
             "stop_music": {
                 "on": "enter"
             }
+        },
+        "hacker-command-choice": {
+            "time": 1414,
+            "choice": {
+                "prompt": "What hacker command do you use?",
+                "options": {
+                    "cd": {"text": "cd", "jumpto": "cd"},
+                    "ls": {"text": "ls", "jumpto": "ls"}
+                },
+                "duration": 25,
+                "fill": [0, 1, 1, 1],
+                "stroke": [0, 0, 0, 1],
+                "x": 300,
+                "y": 500
+            }
+        },
+        "ls": {
+            "time": 1439,
+            "flowto": "ls-end"
+        },
+        "ls-end": {
+            "time": 1451,
+            "jumpto": "open-file"
+        },
+        "cd": {
+            "time": 1452,
+            "flowto": "open-file"
+        },
+        "open-file": {
+            "time": 1462.5,
+            "flowto": "doki_doki_poem"
+        },
+        "doki_doki_poem": {
+            "time": 1601,
+            "poem": {
+                "duration": 30,
+                "max_words": 30,
+                "girl_options": ["monika", "natsuki", "sayori", "yuri"],
+                "jumpto": "{girl}-like"
+            }
+        },
+        "monika-like": {
+            "time": 1631,
+            "flowto": "monika-like-end"
+        },
+        "monika-like-end": {
+            "time": 1653,
+            "jumpto": "book-choice"
+        },
+        "natsuki-like": {
+            "time": 1654,
+            "flowto": "natsuki-like-end"
+        },
+        "natsuki-like-end": {
+            "time": 1675,
+            "jumpto": "book-choice"
+        },
+        "sayori-like": {
+            "time": 1677,
+            "flowto": "sayori-like-end"
+        },
+        "sayori-like-end": {
+            "time": 1698,
+            "jumpto": "book-choice"
+        },
+        "yuri-like": {
+            "time": 1699,
+            "flowto": "book-choice"
+        },
+        "book-choice": {
+            "time": 1723,
+            "choice": {
+                "prompt": "Which book do you want to read?",
+                "options": {
+                    "infinite-jest": {"text": "Infinite Jest", "jumpto": "infinite-jest"},
+                    "ulysses": {"text": "Ulysses", "jumpto": "ulysses"},
+                    "gravitys-rainbow": {"text": "Gravity's Rainbow", "jumpto": "gravitys-rainbow"},
+                    "bom": {"text": "The Book of Mormon", "jumpto": "bom"}
+                },
+                "duration": 25,
+                "fill": [0.5, 0.2, 0.2, 0.5],
+                "stroke": [1, 1, 1, 1],
+                "x": 70,
+                "y": 900,
+                "dx": 450,
+                "dy": 0,
+                "draw_prompt": false
+            }
+        },
+        "ulysses": {
+            "time": 1748,
+            "flowto": "ulysses-end"
+        },
+        "ulysses-end": {
+            "time": 1768,
+            "jumpto": "{girl}-after-class"
+        },
+        "gravitys-rainbow": {
+            "time": 1768,
+            "flowto": "gravitys-rainbow-end"
+        },
+        "gravitys-rainbow-end": {
+            "time": 1789,
+            "jumpto": "{girl}-after-class"
+        },
+        "infinite-jest": {
+            "time": 1789,
+            "flowto": "infinite-jest-end"
+        },
+        "infinite-jest-end": {
+            "time": 1804,
+            "jumpto": "{girl}-after-class"
+        },
+        "bom": {
+            "time": 1804,
+            "flowto": "bom-end"
+        },
+        "bom-end": {
+            "time": 1829,
+            "jumpto": "{girl}-after-class"
+        },
+        "monika-after-class": {
+            "time": 1829,
+            "flowto": "monika-after-class-end"
+        },
+        "monika-after-class-end": {
+            "time": 1859,
+            "jumpto": "love-response"
+        },
+        "natsuki-after-class": {
+            "time": 1859,
+            "flowto": "natsuki-after-class-end"
+        },
+        "natsuki-after-class-end": {
+            "time": 1892.5,
+            "jumpto": "love-response"
+        },
+        "sayori-after-class": {
+            "time": 1892.5,
+            "flowto": "sayori-after-class-end"
+        },
+        "sayori-after-class-end": {
+            "time": 1923.5,
+            "jumpto": "love-response"
+        },
+        "yuri-after-class": {
+            "time": 1923.5,
+            "flowto": "yuri-after-class-end"
+        },
+        "yuri-after-class-end": {
+            "time": 1955.5,
+            "jumpto": "love-response"
+        },
+        "love-response": {
+            "time": 1955.5,
+            "choice": {
+                "prompt": "How do you respond to the profession of love?",
+                "options": {
+                    "you-too": {"text": "Y-you too", "jumpto": "{girl}-lose"},
+                    "archaeologist": {"text": "Are you an archaeologist?", "jumpto": "{girl}-win"}
+                },
+                "duration": 26,
+                "fill": [0.5, 0.5, 0.5, 0.5],
+                "stroke": [0, 0, 0, 1],
+                "x": 510,
+                "y": 350
+            }
+        },
+        "yuri-win": {
+            "time": 1981,
+            "flowto": "yuri-win-end"
+        },
+        "yuri-win-end": {
+            "time": 1994,
+            "jumpto": "woods"
+        },
+        "monika-win": {
+            "time": 1994,
+            "flowto": "monika-win-end"
+        },
+        "monika-win-end": {
+            "time": 2008,
+            "jumpto": "woods"
+        },
+        "natsuki-win": {
+            "time": 2008,
+            "flowto": "natsuki-win-end"
+        },
+        "natsuki-win-end": {
+            "time": 2023,
+            "jumpto": "woods"
+        },
+        "sayori-win": {
+            "time": 2023,
+            "flowto": "sayori-win-end"
+        },
+        "sayori-win-end": {
+            "time": 2037,
+            "jumpto": "woods"
+        },
+        "yuri-lose": {
+            "time": 2037,
+            "flowto": "yuri-lose-end"
+        },
+        "yuri-lose-end": {
+            "time": 2047.5,
+            "jumpto": "woods"
+        },
+        "monika-lose": {
+            "time": 2047.5,
+            "flowto": "monika-lose-end"
+        },
+        "monika-lose-end": {
+            "time": 2061,
+            "jumpto": "woods"
+        },
+        "natsuki-lose": {
+            "time": 2061,
+            "flowto": "natsuki-lose-end"
+        },
+        "natsuki-lose-end": {
+            "time": 2072,
+            "jumpto": "woods"
+        },
+        "sayori-lose": {
+            "time": 2017,
+            "flowto": "woods"
+        },
+        "woods": {
+            "time": 2082,
+            "flowto": "chase-choice"
+        },
+        "chase-choice": {
+            "time": 2343,
+            "choice": {
+                "prompt": "What year was Avery founded?",
+                "options": {
+                    "1992": {"text": "1992", "jumpto": "1992"},
+                    "1991": {"text": "1991", "jumpto": "1991"},
+                    "drift": {"text": "While you were memorizing pointless Avery facts, I mastered the art of the Drift", "jumpto": "drift"}
+                },
+                "duration": 13,
+                "fill": [0, 0, 0, 0.5],
+                "stroke": [0, 0, 0, 1],
+                "x": 50,
+                "y": 610
+            }
+        },
+        "1992": {
+            "time": 2356,
+            "flowto": "1992-end"
+        },
+        "1992-end": {
+            "time": 2368,
+            "jumpto": "drift"
+        },
+        "1991": {
+            "time": 2368,
+            "flowto": "1991-end"
+        },
+        "1991-end": {
+            "time": 2374,
+            "jumpto": "drift-end"
+        },
+        "drift": {
+            "time":2375,
+            "flowto": "drift-end"
+        },
+        "drift-end": {
+            "time": 2383,
+            "flowto": "mercy-choice"
+        },
+        "mercy-choice": {
+            "time": 2466,
+            "choice": {
+                "prompt": "Do you have mercy on Santa?",
+                "options": {
+                    "mercy": {"text": "Yes", "jumpto": "mercy"},
+                    "no-mercy": {"text": "No", "jumpto": "no-mercy"}
+                },
+                "duration": 26,
+                "fill": [1, 0, 0, 0.5],
+                "stroke": [1, 0, 0, 1],
+                "x": 910,
+                "y": 610
+            }
+        },
+        "no-mercy": {
+            "time": 2492,
+            "flowto": "no-mercy-end"
+        },
+        "no-mercy-end": {
+            "time": 2509,
+            "jumpto": "credits"
+        },
+        "mercy": {
+            "time": 2513,
+            "flowto": "credits"
+        },
+        "credits": {
+            "time": 2554.20
         }
     },
     "sportsball": {
         "players": {
+            "Noelle": {
+                "abilities": {
+                    "Kick ball": "noelle_kick_ball",
+                    "Head ball": "noelle_head_ball",
+                    "Jump": "noelle_jump",
+                    "Duck": "noelle_duck",
+                    "Dodge": "noelle_dodge"
+                },
+                "x": 100,
+                "y": 100
+            },
             "Nora": {
                 "abilities": {
                     "Throw balls": "nora_throw_balls",
@@ -436,8 +799,9 @@
             },
             "Adrian": {
                 "abilities": {
+                    "Pincer Attack": "adrian_pincer_attack",
                     "Bunt": "adrian_bunt",
-                    "Bat of peace": "adrian_bat",
+                    "Bat of Peace": "adrian_bat",
                     "Hole in one": "adrian_hole_in_one"
                 },
                 "x": 1500,
@@ -451,7 +815,7 @@
                     "Pep talk": "evan_pep_talk"
                 },
                 "x": 1250,
-                "y": 400
+                "y": 550
             },
             "David": {
                 "abilities": {
@@ -463,16 +827,5 @@
                 "y": 550
             }
         }
-    },
-            "Noelle": {
-                "abilities": {
-                    "Kick ball": "noelle_kick_ball",
-                    "Head ball": "noelle_head_ball",
-                    "Jump": "noelle_jump",
-                    "Duck": "noelle_duck",
-                    "Dodge": "noelle_dodge"
-                },
-                "x": 100,
-                "y": 100
-            }
+    }
 }
