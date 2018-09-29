@@ -9,11 +9,13 @@ from collections import OrderedDict
 from enum import Enum
 from socketIO_client import SocketIO, LoggingNamespace
 from queue import Queue
+from uuid import uuid4
 from random_words import RandomWords
 
 import random
 import cairo
 import subprocess
+import urllib
 import gi
 gi.require_version('Gst', '1.0')
 gi.require_foreign('cairo')
@@ -91,8 +93,8 @@ class Choice:
         self.draw_prompt = draw_prompt
         self.room = room
 
-    def make_json_data(self):
-        self_data = {"prompt": self.prompt, "options": {name: option.text for name, option in self.options.items()}, "room": self.room}
+    def make_json_data(self, choice_dialog):
+        self_data = {"prompt": self.prompt, "options": {name: option.text for name, option in self.options.items()}, "room": self.room, "uuid": choice_dialog.uuid}
         print("SELF DATA: {}".format(self_data))
         return self_data
 
@@ -232,6 +234,7 @@ class ChoiceDialog:
     def __init__(self, choice):
         self.choice = choice
         self.boxes = {}
+        self.uuid = uuid4().hex
 
         # get longest text
         texts = [option.text for (key, option) in choice.options.items()]
@@ -276,6 +279,7 @@ class PoemDialog:
 
     def __init__(self, poem):
         self.poem = poem
+        self.uuid = uuid4().hex
         self.title_x = 100
         self.title_y = 100
         self.starting_x = 100
@@ -496,7 +500,7 @@ class Player:
         self.active_dialogs = [ChoiceDialog(self.curr_label.choice)]
         self.end_label_time = timestamp + self.curr_label.choice.duration
         if self.socketIO:
-            self.socketIO.emit("show_choice", self.curr_label.choice.make_json_data())
+            self.socketIO.emit("show_choice", self.curr_label.choice.make_json_data(self.active_dialogs[0]))
         #print("timestamp: {}".format(timestamp))
         #print("end label time: {}".format(self.end_label_time))
 
@@ -536,11 +540,10 @@ class Player:
                 option.votes = 0
             new_dialog = ChoiceDialog(player.ability_choice)
             self.active_dialogs.append(new_dialog)
+            # Emit choice show event for each different player in corresponding room
+            if self.socketIO:
+                self.socketIO.emit("show_choice", player.ability_choice.make_json_data(new_dialog))
         self.end_label_time = timestamp + self.curr_label.sportsball_quarter.duration
-        # Emit choice show event for each different player in corresponding room
-        if self.socketIO:
-            for i, player in enumerate(self.world.sportsball.players):
-                self.socketIO.emit("show_choice", player.ability_choice.make_json_data())
 
     def sportsball_cb(self):
         self.any_cb()
@@ -610,7 +613,7 @@ class Player:
         if self.socketIO:
             for user in self.users:
                 words = rw.random_words(count=5)
-                self.socketIO.emit("show_choice", Choice("Choose a word for the poem", {word: Option(word, None) for word in words}, self.curr_label.poem.duration, room=user).make_json_data())
+                self.socketIO.emit("show_choice", Choice("Choose a word for the poem", {word: Option(word, None) for word in words}, self.curr_label.poem.duration, room=user).make_json_data(self.active_dialogs[0]))
 
     def poem_cb(self):
         self.any_cb()
@@ -619,7 +622,7 @@ class Player:
         #print("timestamp: {}".format(timestamp))
         #print("end label time: {}".format(self.end_label_time))
         if timestamp > (self.end_label_time - 5) * 1e9 and not self.girl:
-            self.girl = random.choice(self.curr_label.poem.girl_options)
+            self.girl = "natsuki"#random.choice(self.curr_label.poem.girl_options)
             self.active_dialogs[0].poem.girl = self.girl
             self.active_dialogs[0].poem.liked_words = random.sample(self.curr_label.poem.words, min(len(self.curr_label.poem.words), 5))
             print("LIKED WORDS: {}".format(self.active_dialogs[0].poem.liked_words))
@@ -664,8 +667,10 @@ class Player:
         self.users.append(user_id)
         if self.active_dialogs and type(self.active_dialogs[0]) == ChoiceDialog:
             curr_choice = self.active_dialogs[0].choice
-            send_choice = Choice(curr_choice.prompt, curr_choice.options, room=user_id)
-            self.socketIO.emit("show_choice", send_choice.make_json_data())
+            print("Curr uuid: {} | Voted uuid: {}".format(self.active_dialogs[0].uuid, voted))
+            if self.active_dialogs[0].uuid != voted:
+                send_choice = Choice(curr_choice.prompt, curr_choice.options, room=user_id)
+                self.socketIO.emit("show_choice", send_choice.make_json_data(self.active_dialogs[0]))
 
 
     def remove_user(self, user_id):
