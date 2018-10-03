@@ -1,5 +1,7 @@
 {
-    "starting_label": "intro_choice",
+    "video_filename": "main.mp4",
+    "vote_sound_filename": "ding.wav",
+    "starting_label": "intro",
     "labels": {
         "intro": {
             "time": 0,
@@ -174,7 +176,7 @@
                 "prompt": "What \"tool\" do you use to \"solve\" this problem?",
                 "options": {
                     "toothbrush": {"text": "Evan's toothbrush", "jumpto": "toothbrush"},
-                    "hammer": {"text": "David's hammer--a useful tool", "jumpto": "hammer"}
+                    "hammer": {"text": "David's hammer (a tool, not a weapon)", "jumpto": "hammer"}
                 },
                 "duration": 26,
                 "fill": [1, 0, 0, 1],
@@ -540,7 +542,7 @@
                     "infinite-jest": {"text": "Infinite Jest", "jumpto": "infinite-jest"},
                     "ulysses": {"text": "Ulysses", "jumpto": "ulysses"},
                     "gravitys-rainbow": {"text": "Gravity's Rainbow", "jumpto": "gravitys-rainbow"},
-                    "bom": {"text": "The Book of Mormon", "jumpto": "bom"}
+                    "bom": {"text": "Ulysses", "jumpto": "ulysses"}
                 },
                 "duration": 25,
                 "fill": [0.5, 0.2, 0.2, 0.5],
@@ -622,7 +624,7 @@
                 "prompt": "How do you respond to the profession of love?",
                 "options": {
                     "you-too": {"text": "Y-you too", "jumpto": "{girl}-lose"},
-                    "archaeologist": {"text": "Are you an archaeologist?", "jumpto": "{girl}-win"}
+                    "archaeologist": {"text": "Caltech administration rocks!", "jumpto": "{girl}-win"}
                 },
                 "duration": 26,
                 "fill": [0.5, 0.5, 0.5, 0.5],

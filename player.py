@@ -22,7 +22,7 @@ gi.require_foreign('cairo')
 from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
 
 
-SERVER_URL = 'https://avery.caltech.edu/'
+SERVER_URL = 'localhost:5000'
 MEDIA_PATH = 'videos/'
 
 mainLoop = GLib.MainLoop.new(None, False)
@@ -48,9 +48,6 @@ def stop_music():
         music_proc.kill()
         music_proc = None
 
-
-videoFile = "file:///home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/main.mp4"
-audioFile = "/home/david/gdrive/avery_house/rotation_video/rotation-video-player/videos/ding.wav"
 
 
 class Option:
@@ -155,10 +152,10 @@ class Poem:
 class World:
     def __init__(self, filename):
         self.world_path = os.path.abspath(filename)
-        self.video_path = os.path.join(os.path.dirname(self.world_path), "videos")
         with open(self.world_path) as json_datafile:
             self.data = json.load(json_datafile, object_pairs_hook=OrderedDict)
-        print(json.dumps(self.data, indent=4))
+        self.video_path = os.path.join(os.path.dirname(self.world_path), MEDIA_PATH, self.data["video_filename"])
+        self.vote_sound_path = os.path.join(os.path.dirname(self.world_path), MEDIA_PATH, self.data["vote_sound_filename"])
         self.labels = self.data["labels"]
         self.current_label = self.data["starting_label"]
         self.current_label_index = list(self.data["labels"].keys()) \
@@ -349,7 +346,7 @@ class Player:
         self.timeline = GES.Timeline.new_audio_video()
         self.layer = GES.Layer()
         self.timeline.add_layer(self.layer)
-        self.openFile(videoFile)
+        self.openFile(self.world.video_path)
 
         self.pipeline = GES.Pipeline()
         self.pipeline.set_timeline(self.timeline)
@@ -547,14 +544,6 @@ class Player:
 
     def sportsball_cb(self):
         self.any_cb()
-        '''if random.randint(0,100) == 0:
-            self.vote_cb("evan_pep_talk")
-            for i, player in enumerate(self.world.sportsball.players):
-                for name, option in player.ability_choice.options.items():
-                    if random.randint(0, 5) == 0:
-                        self.vote_cb(name)
-                        break'''
-
         timestamp = self.pipeline.query_position(Gst.Format.TIME)[1]
         #print("timestamp: {}".format(timestamp))
         #print("end label time: {}".format(self.end_label_time))
@@ -622,7 +611,7 @@ class Player:
         #print("timestamp: {}".format(timestamp))
         #print("end label time: {}".format(self.end_label_time))
         if timestamp > (self.end_label_time - 5) * 1e9 and not self.girl:
-            self.girl = "natsuki"#random.choice(self.curr_label.poem.girl_options)
+            self.girl = random.choice(self.curr_label.poem.girl_options)
             self.active_dialogs[0].poem.girl = self.girl
             self.active_dialogs[0].poem.liked_words = random.sample(self.curr_label.poem.words, min(len(self.curr_label.poem.words), 5))
             print("LIKED WORDS: {}".format(self.active_dialogs[0].poem.liked_words))
@@ -655,12 +644,12 @@ class Player:
             for dialog in self.active_dialogs:
                 if type(dialog) == ChoiceDialog and option in dialog.choice.options:
                     dialog.choice.options[option].votes += 1
-                    play_sound(audioFile)
+                    play_sound(self.world.vote_sound_path)
                     break
                 if type(dialog) == PoemDialog:
                     print("Appending {}".format(option))
                     dialog.poem.words.append(option)
-                    play_sound(audioFile)
+                    play_sound(self.world.vote_sound_path)
                     break
 
     def add_user(self, user_id, voted):
@@ -677,9 +666,9 @@ class Player:
         self.users.remove(user_id)
 
  
-    def openFile(self, fileName):
-        print(videoFile)
-        self.asset = GES.UriClipAsset.request_sync(videoFile)
+    def openFile(self, file_path):
+        print("Opening file: {}".format(file_path))
+        self.asset = GES.UriClipAsset.request_sync('file://' + file_path)
         self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
         self.timeline.commit()
 
