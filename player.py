@@ -25,12 +25,15 @@ from gi.repository import GES, Gtk, Gdk, Gst, GObject, GstVideo, GLib
 SERVER_URL = 'localhost:5000'
 MEDIA_PATH = 'videos/'
 
+
 mainLoop = GLib.MainLoop.new(None, False)
 rw = RandomWords()
 random.seed()
 
+
 def play_sound(path):
     subprocess.Popen(["ffplay", "-nodisp", "-autoexit", path])
+
 
 music_proc = None
 def play_music(path):
@@ -41,13 +44,13 @@ def play_music(path):
     print("Playing music: {}".format(path))
     music_proc = subprocess.Popen(["ffplay", "-nodisp", "-autoexit", "-loop", "0", path])
 
+
 def stop_music():
     global music_proc
     print("Stopping music")
     if music_proc:
         music_proc.kill()
         music_proc = None
-
 
 
 class Option:
@@ -75,7 +78,6 @@ class Choice:
         dy = json_data['dy'] if 'dy' in json_data else 100
         draw_prompt = json_data['draw_prompt'] if 'draw_prompt' in json_data else True
         return cls(prompt, options, duration, fill, stroke, x, y, dx, dy, draw_prompt)
-
 
     def __init__(self, prompt, options, duration=20, fill=[1, 1, 1, 0.25], stroke=[1, 1, 1, 1], x=700, y=500, dx=0, dy=100, draw_prompt=True, room=None):
         self.prompt = prompt
@@ -114,14 +116,17 @@ class PlayMusic:
         self.filename = json_data["filename"]
         self.on = json_data["on"]
 
+
 class StopMusic:
     def __init__(self, json_data):
         self.on = json_data["on"]
+
 
 class SportsballPlayer:
     def __init__(self, name, json_data, room_index):
         self.name = name
         self.ability_choice = Choice(name, {value: Option(key, value) for (key, value) in json_data['abilities'].items()}, room=str(room_index), x = json_data['x'], y = json_data['y'])
+
 
 class SportsballGame:
     def __init__(self, json_data):
@@ -131,6 +136,7 @@ class SportsballGame:
             self.players.append(SportsballPlayer(key, value, room_index))
             room_index += 1
 
+
 class SportsballQuarter:
     def __init__(self, json_data):
         self.duration = json_data['duration']
@@ -138,6 +144,7 @@ class SportsballQuarter:
         self.enemy_moves = json_data['enemy_moves']
         self.lose_label = json_data['lose_label']
         self.win_label = json_data['win_label']
+
 
 class Poem:
     def __init__(self, json_data):
@@ -148,6 +155,7 @@ class Poem:
         self.words = []
         self.liked_words = []
         self.girl = None
+
 
 class World:
     def __init__(self, filename):
@@ -160,12 +168,13 @@ class World:
         self.current_label = self.data["starting_label"]
         self.current_label_index = list(self.data["labels"].keys()) \
                 .index(self.current_label)
-
         self.sportsball = SportsballGame(self.data["sportsball"])
 
 
+# Animation constants for box wiggle
 MAX_SPEED = 0.5
 DAMPING = 0.1
+
 class ChoiceBox:
     
     def __init__(self, text, pattern, color, x, y, border=True, reftext='', display_x=None, display_y=None, choosable=False):
@@ -194,23 +203,14 @@ class ChoiceBox:
             self.vx = random.uniform(-MAX_SPEED-display_x_offset*DAMPING, MAX_SPEED-display_x_offset*DAMPING)
             self.vy = random.uniform(-MAX_SPEED-display_y_offset*DAMPING, MAX_SPEED-display_y_offset*DAMPING)
 
-        '''if random.randint(0, 100) == 0 and self.choosable:
-            self.fill_percent = min(self.fill_percent + 0.1, 1)
-            play_sound(audioFile)'''
-
     def draw(self, context, timestamp):
         context.select_font_face('Noto Sans', cairo.FONT_SLANT_ITALIC, cairo.FONT_WEIGHT_BOLD)
         context.set_font_size(40)
-
         margin = 20
-
-        
         extents = context.text_extents(self.reftext if self.reftext != '' else self.text)
         context.rectangle(self.display_x, self.display_y, (extents.width + 2 * margin)*self.fill_percent, extents.height + 2 * margin)
         context.set_source(self.pattern)
         context.fill()
-
-
         context.set_source_rgba(*self.color)
         if self.border:
             context.rectangle(self.display_x, self.display_y, extents.width + 2 * margin, extents.height + 2 * margin)
@@ -219,15 +219,12 @@ class ChoiceBox:
             context.set_dash(dashes, timestamp / 1E7)
             context.set_line_join(cairo.LINE_JOIN_BEVEL)
             context.stroke()
-
         context.move_to(self.display_x + margin, self.display_y + extents.height + margin)
         context.text_path(self.text)
-        #print(extents)
         context.set_source_rgba(*self.color)
         context.fill()
 
 class ChoiceDialog:
-
     def __init__(self, choice):
         self.choice = choice
         self.boxes = {}
@@ -245,7 +242,6 @@ class ChoiceDialog:
         dx = choice.dx
         fill = cairo.SolidPattern(*choice.fill)
         stroke = choice.stroke
-        #print("LONGEST: {}".format(longest_text))
 
         if choice.draw_prompt:
             self.boxes['prompt'] = ChoiceBox(choice.prompt, fill, stroke, x, y, False, longest_text, 1920, 1080)
@@ -273,7 +269,6 @@ class ChoiceDialog:
             box.update()
 
 class PoemDialog:
-
     def __init__(self, poem):
         self.poem = poem
         self.uuid = uuid4().hex
@@ -304,7 +299,6 @@ class PoemDialog:
                     context.set_source_rgba(1, 1, 1, 1)
                     context.text_path(word)
             (x, y) = context.get_current_point()
-            print("({}, {})".format(x, y))
             if x > 1700:
                 x = self.starting_x
                 y += 50
@@ -316,6 +310,8 @@ class PoemDialog:
     def update(self):
         pass
 
+
+# states for player state machine
 STATE_IDLE = 0
 STATE_CHOICE = 1
 STATE_JUMP = 2
@@ -329,12 +325,10 @@ CB_ON_EXIT = 2
 
 
 class Player:
- 
     def __init__(self, world, socketIO):
         # member initialization
         self.world = world
         self.socketIO = socketIO
-        #self.choices = ChoiceDialog(["WHERE TO NEXT?", "UPSTAIRS", "GROUND FLOOR"])
         self.active_dialogs = []
         self.users = []
         self.label_queue = Queue()
@@ -346,7 +340,7 @@ class Player:
         self.timeline = GES.Timeline.new_audio_video()
         self.layer = GES.Layer()
         self.timeline.add_layer(self.layer)
-        self.openFile(self.world.video_path)
+        self.open_file(self.world.video_path)
 
         self.pipeline = GES.Pipeline()
         self.pipeline.set_timeline(self.timeline)
@@ -387,8 +381,6 @@ class Player:
         xid = self.window.get_window().get_xid()
         videosink.set_window_handle (xid)
 
-
-
         #state machine stuff
         self.state = STATE_IDLE
         self.state_funcs = {
@@ -400,12 +392,9 @@ class Player:
         }
         self.end_label_time = -1 #TODO: better solution
 
-
         time.sleep(1)
         self.jump_label(self.world.current_label)
         self.pipeline.set_state(Gst.State.PLAYING)
-
-
 
     def update(self):
         cur_callbacks = self.state_funcs[self.state]
@@ -518,14 +507,12 @@ class Player:
                 print("CHOICE Setting label to {}".format(jumpto))
                 self.jump_label(jumpto)
 
-
     def leave_choice_cb(self):
         self.leave_any_cb()
         self.active_dialogs = []
         print("CLEARING CHOICE")
         if self.socketIO:
             self.socketIO.emit("clear_choice")
-
 
     def enter_sportsball_cb(self):
         self.enter_any_cb()
@@ -590,7 +577,6 @@ class Player:
         print("CLEARING CHOICE")
         if self.socketIO:
             self.socketIO.emit("clear_choice")
-
 
     def enter_poem_cb(self):
         self.enter_any_cb()
@@ -661,38 +647,18 @@ class Player:
                 send_choice = Choice(curr_choice.prompt, curr_choice.options, room=user_id)
                 self.socketIO.emit("show_choice", send_choice.make_json_data(self.active_dialogs[0]))
 
-
     def remove_user(self, user_id):
         self.users.remove(user_id)
 
- 
-    def openFile(self, file_path):
+    def open_file(self, file_path):
         print("Opening file: {}".format(file_path))
         self.asset = GES.UriClipAsset.request_sync('file://' + file_path)
         self.layer.add_asset(self.asset, 0, 0, self.asset.get_duration(), self.asset.get_supported_formats())
         self.timeline.commit()
 
- 
-    def exitCall(self):
-        print("Exit")
-        self.pipeline.set_state(Gst.State.NULL)
-        sys.exit(app.exec_())
-        
-    def play(self):
-        pass
-        #self.mediaPlayer.play()
-
-    def pause(self):
-        pass
-        #self.mediaPlayer.pause()
-
-    def play_pause_toggle(self):
-        pass
-
     def seek(self, location):
         print("seeking to %r" % location)
         self.pipeline.seek_simple(Gst.Format.TIME, Gst.SeekFlags.FLUSH | Gst.SeekFlags.KEY_UNIT, location)
-
 
     def on_draw(self, _overlay, context, timestamp, _duration):
         (_, duration) = self.pipeline.query_duration(Gst.Format.TIME)
@@ -727,7 +693,6 @@ class Player:
 
 
 class SocketIOListener:
-
     def __init__(self, player, socketIO):
         self.player = player
         self.socketIO = socketIO
@@ -773,8 +738,6 @@ def listen_to_server(player, socketIO):
     except KeyboardInterrupt:
         print('Keyboard interrupt')
 
-
-
  
 if __name__ == '__main__':
     # Call library init functions
@@ -787,7 +750,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('filename')
     args = parser.parse_args()
-
 
     # Initialize objects
     world = World(args.filename)
