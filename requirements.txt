@@ -7,5 +7,5 @@ RandomWords==0.2.1
 requests==2.19.1
 six==1.11.0
 socketIO-client==0.7.2
-urllib3==1.23
+urllib3==1.26.5
 websocket-client==0.53.0
